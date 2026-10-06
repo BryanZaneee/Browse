@@ -20,7 +20,7 @@ It was built by a design studio that spends its whole day in a browser and was t
 
 ## What it does
 
-- **One field.** Type an address and you go there; type words and you search. It finishes addresses from your own history and never sends what you type anywhere until you press Return.
+- **One field.** Type an address and you go there; type words and you search. It finishes addresses from your own history and never sends what you type anywhere until you press Return, unless you enable the experimental Jev home-screen tools described below.
 - **Tabs that stay out of the way.** Pin the pages you keep open all day and they shrink to a letter or their icon. Tabs from your last session come back instantly and cost nothing until you click them. `⌘K` lists your open tabs by name.
 - **Two pages side by side.** Turn on Split View in Settings › Tabs, then drag a tab onto a page or choose Tabs › Split Current Page. Drag the divider to resize the panes; the outlined pane receives page commands. Pairs and their widths come back with their Space, including after a restart.
 - **Reading mode.** `⇧⌘R` strips a page down to the article.
@@ -33,13 +33,17 @@ It was built by a design studio that spends its whole day in a browser and was t
 - **Chrome extensions, without Chrome.** Paste a Chrome Web Store link in Settings › Extensions, or open the extension's page in Search and press Add. It runs on WebKit's own extension engine — the one Safari uses — and where Chrome has APIs WebKit doesn't (bookmarks, history, downloads, side panel, offscreen documents, fonts, notifications, speech, OAuth sign-in), Search fills them in itself. They live behind the puzzle button; pin the ones you use often. Building your own? Load its folder as an unpacked extension and press Reload after each change, as in Chrome's developer mode. macOS 15.4 or later.
 - **Updates itself, quietly.** Once a day it checks for a newer build, downloads it, verifies it is signed by Office Commun, and swaps it in for the next launch. Nothing restarts on its own.
 
+## Experimental home-screen tools
+
+This branch adds optional native Quick tools in Settings → AI. Type a request to reveal a timer, calculation, conversion, checklist, note or another compact component beneath the home-screen input. Optional Jev understands natural wording and selects source text for editable fields. Saved notes appear as small home-screen cards. A visible component replaces the normal suggestion rows; Return still searches the text with your chosen engine. There is no component picker. Email drafts continue in your mail app for review and sending; the inbox is an unconnected placeholder. Off by default and excluded from private tabs. See [setup and limits](docs/jev-tools.md) and the [PR write-up with screenshots](docs/pr-native-quick-tools.md).
+
 ## What it doesn't do
 
 On purpose:
 
 - No extension you have to install to feel at home. Blocking ads, hiding clutter, reading mode, picture-in-picture and passwords are built in; extensions are there for everything else.
 - No sync, no account, no cloud. Your tabs, history and passwords are on your Mac and nowhere else.
-- No telemetry, no analytics, no crash reports sent anywhere. The only things that leave your Mac are the pages you ask for, their icons, and one small request a day to see whether there is a newer version.
+- No telemetry, no analytics, no crash reports sent anywhere. The only things that leave your Mac are the pages you ask for, their icons, and one small request a day to see whether there is a newer version. Optional AI features also send the data described in their settings when you enable and use them.
 - One window. Tabs are the only kind of "new" there is.
 
 ## Privacy, concretely

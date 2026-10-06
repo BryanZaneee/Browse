@@ -46,7 +46,7 @@ final class AIClient: NSObject, URLSessionTaskDelegate, @unchecked Sendable {
 
     private static let log = Logger(subsystem: "com.officecommun.search", category: "AI")
 
-    private lazy var session: URLSession = {
+    lazy var session: URLSession = {
         let configuration = URLSessionConfiguration.ephemeral
         configuration.urlCache = nil
         configuration.httpCookieStorage = nil
@@ -136,6 +136,7 @@ final class AIClient: NSObject, URLSessionTaskDelegate, @unchecked Sendable {
     /// address is known to be the provider's own.
     static func request(_ provider: AIProvider, model: String, system: String, messages: [AIMessage],
                         key: String?) throws -> URLRequest {
+        guard provider != .jev && provider != .jevOpenRouter else { throw AIError.unreadable }
         let url: URL
         var body: [String: Any]
         switch provider.wire {

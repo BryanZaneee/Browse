@@ -7,6 +7,7 @@ import AppKit
 /// search engine.
 struct Omnibox: View {
     @ObservedObject var browser: Browser
+    @ObservedObject private var tools: HomeTools
     /// Raised over a page by ⌘L, rather than standing on an empty tab.
     let over: Bool
 
@@ -20,6 +21,13 @@ struct Omnibox: View {
 
     /// Sized to a pane of a split rather than to the window.
     var fitted = false
+
+    init(browser: Browser, over: Bool, fitted: Bool = false) {
+        self.browser = browser
+        self.over = over
+        self.fitted = fitted
+        self.tools = browser.homeTools
+    }
 
     var body: some View {
         if fitted {
@@ -52,16 +60,19 @@ struct Omnibox: View {
                 // Present or gone, not always-on-and-hidden: the list keeps
                 // the appear and disappear it had, and the overlay is what
                 // keeps that from moving the field.
-                if !browser.offers.isEmpty || browser.siteOffer != nil {
-                    list
-                        .frame(width: width)
-                        .offset(y: Self.fieldHeight + 8)
+                VStack(spacing: 8) {
+                    HomeToolsPanel(browser: browser, prefs: browser.prefs, tools: browser.homeTools, over: over)
+                    if !tools.showingCard && (!browser.offers.isEmpty || browser.siteOffer != nil) {
+                        list
+                    }
                 }
+                .frame(width: width)
+                .offset(y: Self.fieldHeight + 8)
             }
             // Lifted a little above centre: dead centre reads as low,
             // because the strip at the top isn't part of what the eye is
             // measuring.
-            .padding(.bottom, 60)
+            .padding(.bottom, browser.prefs.quickTools && !over && browser.active?.isBlank == true && browser.active?.shy == false ? 180 : 60)
             // The list's arrival and its leaving are animated from here,
             // briefly: nothing that changes the suggestions does it inside
             // an animation of its own. Its rows follow what was typed or
@@ -376,6 +387,7 @@ struct AddressField: NSViewRepresentable {
     func makeNSView(context: Context) -> NSTextField {
         let field = NSTextField()
         field.delegate = context.coordinator
+        field.identifier = NSUserInterfaceItemIdentifier("SearchAddressField")
         field.isBordered = false
         field.drawsBackground = false
         field.focusRingType = .none
@@ -399,6 +411,10 @@ struct AddressField: NSViewRepresentable {
     func updateNSView(_ field: NSTextField, context: Context) {
         let coordinator = context.coordinator
         coordinator.browser = browser
+        field.placeholderAttributedString = NSAttributedString(
+            string: browser.prefs.quickTools && browser.active?.isBlank == true && browser.active?.shy == false
+                ? "Search or try ‘100 USD to EUR’" : "Enter a web address",
+            attributes: [.font: NSFont.systemFont(ofSize: 15.5), .foregroundColor: NSColor(Palette.ink.opacity(0.3))])
 
         // Only when something other than typing changed it — ⌘L arriving with
         // an address, a walk through the list, a submit clearing it.
@@ -495,10 +511,10 @@ struct AddressField: NSViewRepresentable {
                 browser.submit()
                 return true
             case #selector(NSResponder.moveDown(_:)):
-                browser.walk(1)
+                if !browser.homeTools.showingCard { browser.walk(1) }
                 return true
             case #selector(NSResponder.moveUp(_:)):
-                browser.walk(-1)
+                if !browser.homeTools.showingCard { browser.walk(-1) }
                 return true
             case #selector(NSResponder.deleteWordBackward(_:)):
                 // ⌥⌫ over an offered ending lets go of it and takes the last

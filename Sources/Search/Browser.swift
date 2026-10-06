@@ -132,6 +132,7 @@ final class Browser: NSObject, ObservableObject {
     }
 
     let tabSwitcher = TabSwitcher()
+    let homeTools = HomeTools()
 
     /// The tab whose page is currently out in the little window. Nothing
     /// floating means no window: the two are checked against each other rather
@@ -3959,8 +3960,13 @@ final class Browser: NSObject, ObservableObject {
     /// tab you were on is left as it was, behind it unless `front` (⇧⌘Return)
     /// asks to go there.
     func submit(aside: Bool = false, front: Bool = false) {
+        // A tool replaces the suggestion rows, not Return. Search the actual
+        // input rather than a hidden selection or autocomplete destination.
+        let toolSearch = homeTools.showingCard && prefs.quickTools && active?.isBlank == true
+            && active?.shy == false && !summoning && siteChip == nil && siteOffer == nil
+            && !typed.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
         // A page already open is switched to, not opened again.
-        if let picked, offers.indices.contains(picked),
+        if !toolSearch, let picked, offers.indices.contains(picked),
            let id = offers[picked].tab,
            let tab = tabs.first(where: { $0.id == id }) {
             summoning = false
@@ -3992,7 +3998,7 @@ final class Browser: NSObject, ObservableObject {
         // only ever on top, and there it is what Return does. Walked past,
         // Return goes where it always went.
         let chosen = (picked.flatMap { offers.indices.contains($0) ? offers[$0] : nil }) ?? offers.first
-        if case .command(let command) = chosen?.kind {
+        if !toolSearch, case .command(let command) = chosen?.kind {
             command.run(on: self)
             editing = false
             typed = ""
@@ -4001,7 +4007,9 @@ final class Browser: NSObject, ObservableObject {
         }
 
         let target: URL?
-        if let picked, offers.indices.contains(picked) {
+        if toolSearch {
+            target = searchURL(for: typed)
+        } else if let picked, offers.indices.contains(picked) {
             target = offers[picked].url
         } else if ending != nil {
             target = Address.url(from: completed)
