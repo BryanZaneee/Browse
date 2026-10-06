@@ -421,6 +421,7 @@ struct AISettings: View {
                     Switch(on: $prefs.ai)
                 }
             }
+            JevSettings(prefs: prefs)
             if prefs.ai {
                 Card {
                     Line("Where it runs", place) {
@@ -429,7 +430,7 @@ struct AISettings: View {
                         } else {
                         Picker("", selection: Binding(get: { prefs.aiProvider }, set: { prefs.aiProvider = $0 })) {
                             Text("Choose…").tag(AIProvider?.none)
-                            ForEach(AIProvider.allCases.filter { $0 != .thisMac || engine.available || prefs.aiProvider == .thisMac }) { provider in
+                            ForEach(AIProvider.allCases.filter { $0 != .jev && $0 != .jevOpenRouter && ($0 != .thisMac || engine.available || prefs.aiProvider == .thisMac) }) { provider in
                                 Text(provider == .thisMac ? provider.name : provider.isLocal ? "\(provider.name), on this Mac" : provider.name)
                                     .tag(AIProvider?.some(provider))
                             }

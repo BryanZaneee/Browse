@@ -315,6 +315,17 @@ final class Preferences: ObservableObject {
     @Published var ai: Bool {
         didSet { store.set(ai, forKey: "ai") }
     }
+    /// Independent of page chat: this consent covers sending home-screen typing.
+    var jevProvider: AIProvider { jevViaOpenRouter ? .jevOpenRouter : .jev }
+    @Published var jevViaOpenRouter: Bool {
+        didSet { store.set(jevViaOpenRouter, forKey: "ai.jev.openrouter") }
+    }
+    @Published var quickTools: Bool {
+        didSet { store.set(quickTools, forKey: "home.quickTools") }
+    }
+    @Published var jevTools: Bool {
+        didSet { store.set(jevTools, forKey: "ai.jev.tools") }
+    }
     /// Where its answers come from. None until you choose.
     @Published var aiProvider: AIProvider? {
         didSet { store.set(aiProvider?.rawValue, forKey: "ai.provider") }
@@ -427,6 +438,9 @@ final class Preferences: ObservableObject {
         listsPins = store.bool(forKey: "pins.list")
         splitView = store.bool(forKey: "splitView")
         ai = store.bool(forKey: "ai")
+        quickTools = store.object(forKey: "home.quickTools") as? Bool ?? store.bool(forKey: "ai.jev.tools")
+        jevTools = store.bool(forKey: "ai.jev.tools")
+        jevViaOpenRouter = store.bool(forKey: "ai.jev.openrouter")
         aiProvider = store.string(forKey: "ai.provider").flatMap(AIProvider.init(rawValue:))
         aiModels = store.dictionary(forKey: "ai.models") as? [String: String] ?? [:]
         commandBar = store.bool(forKey: "commandbar")

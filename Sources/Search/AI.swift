@@ -15,6 +15,8 @@ enum AIProvider: String, CaseIterable, Identifiable {
     /// The model downloaded to this Mac, run by Search's own engine (AIEngine).
     case thisMac
     case anthropic, openAI, gemini, openRouter
+    /// Typed decisions for home-screen tools, never a page-chat provider.
+    case jev, jevOpenRouter
     /// Ollama, on this Mac.
     case ollama
     /// LM Studio, on this Mac.
@@ -31,6 +33,8 @@ enum AIProvider: String, CaseIterable, Identifiable {
         case .openRouter: return "OpenRouter"
         case .ollama: return "Ollama"
         case .lmStudio: return "LM Studio"
+        case .jev: return "Jev · TypeSafe"
+        case .jevOpenRouter: return "Jev · OpenRouter"
         }
     }
 
@@ -50,6 +54,8 @@ enum AIProvider: String, CaseIterable, Identifiable {
         case .openRouter: return URL(string: "https://openrouter.ai/api/v1/")!
         case .ollama: return URL(string: "http://127.0.0.1:11434/v1/")!
         case .lmStudio: return URL(string: "http://127.0.0.1:1234/v1/")!
+        case .jev: return URL(string: "https://api.typesafe.ai/v1/")!
+        case .jevOpenRouter: return URL(string: "https://openrouter.ai/api/v1/")!
         }
     }
 
@@ -70,6 +76,7 @@ enum AIProvider: String, CaseIterable, Identifiable {
         case .gemini: return "gemini-3.8-flash"
         case .openRouter: return "google/gemini-3.8-flash"
         case .ollama, .lmStudio: return ""
+        case .jev, .jevOpenRouter: return "jev-latest"
         }
     }
 
@@ -99,6 +106,7 @@ enum AIProvider: String, CaseIterable, Identifiable {
 /// never in the settings file, a published value, a log line or an error.
 @MainActor
 enum AIKeys {
+    static let changed = Notification.Name("SearchAIKeysChanged")
     enum Saved { case kept, unavailable, failed }
 
     private static let service = "com.officecommun.search.ai"
@@ -123,6 +131,7 @@ enum AIKeys {
     }
 
     static func save(_ key: String, for provider: AIProvider) -> Saved {
+        defer { NotificationCenter.default.post(name: changed, object: nil) }
         let key = key.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !key.isEmpty, !provider.isLocal else { return .failed }
         if Store.testing {
@@ -168,6 +177,7 @@ enum AIKeys {
     }
 
     static func forget(_ provider: AIProvider) {
+        defer { NotificationCenter.default.post(name: changed, object: nil) }
         if Store.testing { rehearsal[account(provider)] = nil; return }
         SecItemDelete(query(provider) as CFDictionary)
     }

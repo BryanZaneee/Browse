@@ -19,6 +19,12 @@ struct SearchApp: App {
     private var browser: Browser { front.browser ?? SceneSlot.shared.browser }
 
     init() {
+        // Optional demo bootstrap: memory only, removed before spawning child processes.
+        if Store.testing, let value = getenv("SEARCH_JEV_DEMO_KEY") {
+            let key = String(cString: value)
+            unsetenv("SEARCH_JEV_DEMO_KEY")
+            _ = AIKeys.save(key, for: .jevOpenRouter)
+        }
         // Settings › General › Start with a fresh window: the files are cut
         // down before any window reads its row from them.
         if Store.settings.bool(forKey: Preferences.freshKey) {
