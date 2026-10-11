@@ -207,7 +207,6 @@ in it is stale. Whoever works on Search keeps it that way, with `./ideas`
 - [ ] **Pop-ups after a click and a request** A window a page opens a few seconds after your click, once its server answers, is let through. *([#511](https://github.com/driceroland/Search/issues/511), [#503](https://github.com/driceroland/Search/pull/503), [#509](https://github.com/driceroland/Search/pull/509))*
 - [ ] **Media keys back to the music app** Once a video is paused, the media keys go back to Spotify or Music. *([#512](https://github.com/driceroland/Search/issues/512))*
 - [ ] **Tabs that pause, not reload** An option to keep a resting tab's page and let WebKit suspend it, off by default. *([#520](https://github.com/driceroland/Search/issues/520))*
-- [ ] **Open a typed file path** A full or ~/ path that names a file opens it instead of searching. *([#523](https://github.com/driceroland/Search/issues/523), [#557](https://github.com/driceroland/Search/pull/557))*
 - [ ] **Search under Open With** Listed as an alternate app for PDFs, pictures and text files. *([#524](https://github.com/driceroland/Search/issues/524))*
 - [ ] **A local text file opens as text** *([#525](https://github.com/driceroland/Search/issues/525))*
 - [ ] **Ask before a website shares the screen** *([#528](https://github.com/driceroland/Search/issues/528), [#530](https://github.com/driceroland/Search/pull/530))*

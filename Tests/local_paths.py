@@ -29,6 +29,9 @@ def main():
                 paths.append("~/" + str(file.relative_to(Path.home())))
             for path in paths:
                 sv.sp("select", id=tab)
+                before = sv.cmd({"do": "text", "id": tab})["url"]
+                sv.cmd({"do": "field", "text": path, "type": True})
+                t.ok("typing leaves the current page alone", sv.cmd({"do": "text", "id": tab})["url"] == before)
                 sv.cmd({"do": "field", "text": path, "go": True})
                 loaded = sv.cmd({"do": "wait", "id": tab})
                 t.ok("file finishes loading", not loaded.get("loading") and not loaded.get("failure"), loaded)
@@ -44,6 +47,9 @@ def main():
             sv.cmd({"do": "press", "code": 123, "chars": "\uf702", "mods": ["cmd"]})
             sv.cmd({"do": "wait", "id": tab})
             t.ok("Back returns to the typed file", "Local fixture" in sv.cmd({"do": "text", "id": tab})["text"])
+            sv.cmd({"do": "ui", "edittab": str(folder / "next.html"), "finishedit": True})
+            sv.cmd({"do": "wait", "id": tab})
+            t.ok("inline address editing opens a local path", "Next local page" in sv.cmd({"do": "text", "id": tab})["text"])
             # Search keeps only web addresses in its session, including before this fix.
             sv.sp("save")
             t.ok("local paths stay out of the saved session", not any(item["url"].startswith("file:") for item in sv.session()["tabs"]))
