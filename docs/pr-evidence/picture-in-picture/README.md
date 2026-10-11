@@ -81,6 +81,28 @@ The fixture suite checks page identity, layout, DOM presentation mode, playback 
 
 The enabling preference and native Restore delegate hook are private WebKit API. The preference is guarded with `responds(to:)`; the Restore method is invoked only when WebKit offers that callback. If WebKit removes it or a video rejects PiP, Search does not fall back to moving the whole page. macOS owns the native controls, placement and gestures; Search's custom 15-second skips, progress line, pinch/flick behavior and remembered panel geometry are removed. Stored legacy gesture/geometry settings are left untouched and ignored.
 
+## Compatibility follow-up
+
+Search's supported floor is **macOS 14.0**, consistently declared in README.md, Package.swift and build.sh. Extensions separately require 15.4; that is not the browser or PiP minimum. macOS 13 and earlier are outside this change's support scope.
+
+The new native calls do not raise that floor: `callAsyncJavaScript` is available from macOS 11, `closeAllMediaPresentations` with completion from 12, and `fullscreenState` from 13. WebKit's private PiP preference is annotated from 10.13. These declarations and a deployment target establish API/build compatibility, not runtime correctness of private hooks or presentation events.
+
+The Apple Silicon debug build and the additional `SEARCH_ARCH=x86_64 ./build.sh debug` build both succeed. The Intel app passes strict signature verification and records `minos 14.0`. The Intel binary was cross-compiled on macOS 27.0.1; it was not run on an Intel Mac or an older OS. No older macOS VM or virtualization tool was found in the checked local installations.
+
+CONTRIBUTING.md requires clean builds without new warnings, but specifies no OS matrix. [PR #38](https://github.com/driceroland/Search/pull/38) is useful precedent: a minimal launch-crash reproduction was actually run on macOS 14.3, and the maintainer separately checked the fix on 26. [PR #470's hosted validation](https://github.com/quanru/Search/actions/runs/37169893100/job/111340503594) used `macos-15-intel`; its unit/build steps passed while its Split View step failed. Its workflow pins the exact source revision and preserves failures. Neither is evidence that this branch runs on those releases.
+
+Before declaring the supported range verified, run this branch's fixture suite and a visible-browser pass on macOS 14, 15 and 26, recording the OS, WebKit/Safari version, architecture and commit. Include entry, source-page interaction, corner resizing, portrait video, tab/app switching, Restore from a minimized source, Close, and repeat transitions. Use a normal app session for the visible pass: the isolated automation profile intentionally suppresses some window activation. A hosted build/test job can cover compilation and model checks; it does not substitute for the native window pass. A local Apple Virtualization guest is another route, once a compatible restore image is installed. No older-system runtime pass has yet been completed.
+
+### Protected playback
+
+The intended behavior is to support protected video whenever the existing WebKit player and the service permit native PiP. The implementation keeps the original video element, page, cookies and media session. It does not extract URLs, copy decrypted frames, replace the player, change license requests or filter out videos merely because they use encrypted media. It checks WebKit's presentation capability, respects the video's `disablePictureInPicture` setting, and leaves the page usable if entry is rejected. The disabled-player fixture already verifies refusal without disturbing the page.
+
+Actual DRM acceptance still needs an authorized protected stream on a physical Mac: confirm inline playback first, then PiP playback, audio, return, seeking where permitted, and a site that disallows PiP. A blocked inline stream is an existing browser/service compatibility result; a stream that works inline but fails allowed native PiP needs separate investigation. Do not infer FairPlay success from the clear-video fixtures or an OS VM, and do not promise the capabilities of Safari for a third-party WKWebView browser.
+
+### Submission evidence
+
+The maintainer explicitly requested screenshots in the PR description rather than the repository in [the review of #470](https://github.com/driceroland/Search/pull/470). Keep the local captures for review, but move them to PR attachments and remove their repository/history copies when preparing the submission branch. The current local evidence commit has not been published.
+
 ## Upstream coordination
 
 This is a local alternative to the whole-page approaches in #547 and #562. No upstream issue or PR has been published for this branch, and no maintainer approval of the native direction is implied. CONTRIBUTING.md asks to discuss substantial changes first; use the existing #257 discussion or a focused follow-up before submitting this architectural change. The local PR draft identifies the guarded private API and the native-control tradeoff explicitly.
