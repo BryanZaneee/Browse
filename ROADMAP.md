@@ -213,7 +213,6 @@ in it is stale. Whoever works on Search keeps it that way, with `./ideas`
 - [ ] **Ask before a website shares the screen** *([#528](https://github.com/driceroland/Search/issues/528), [#530](https://github.com/driceroland/Search/pull/530))*
 - [ ] **Option-Command arrows to move between tabs** *([#532](https://github.com/driceroland/Search/issues/532))*
 - [ ] **A new tab when the last tab closes** Closing the last tab beside the pins leaves a new tab instead of waking a pin (switch, off). *([#537](https://github.com/driceroland/Search/issues/537), [#538](https://github.com/driceroland/Search/pull/538))*
-- [ ] **Extension updates while Search stays open** *([#539](https://github.com/driceroland/Search/issues/539))*
 - [ ] **Share the screen with its sound** *([#540](https://github.com/driceroland/Search/issues/540))*
 - [ ] **Bitwarden popup spins** Its background never answers the popup (no runtime.onConnect listener). *([#541](https://github.com/driceroland/Search/issues/541))*
 - [ ] **Floating video flickers popping out** The video shifts and flickers as it pops out of the page. *([#543](https://github.com/driceroland/Search/issues/543), [#547](https://github.com/driceroland/Search/pull/547), [#562](https://github.com/driceroland/Search/pull/562))*

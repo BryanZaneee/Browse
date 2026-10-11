@@ -915,10 +915,20 @@ final class Extensions: NSObject, ObservableObject {
 
     // MARK: - updates
 
+    private(set) var updateClock: Timer?
+    private var updating: Set<String> = []
+
     /// Once a day, the store is asked whether anything installed from it has
     /// a newer version; if so it is fetched, checked and swapped in. One that
     /// asks for more than it was installed with is asked about first.
     func checkForUpdates() {
+        // A browser left open for days must keep checking, even if today's check is not due.
+        if updateClock == nil {
+            updateClock = Timer.scheduledTimer(withTimeInterval: 60 * 60, repeats: true) { [weak self] _ in
+                MainActor.assumeIsolated { self?.checkForUpdates() }
+            }
+            updateClock?.tolerance = 60 * 5
+        }
         let key = "extensions.checked"
         let last = Store.settings.object(forKey: key) as? Date ?? .distantPast
         guard Date().timeIntervalSince(last) > 60 * 60 * 20 else { return }
@@ -928,7 +938,10 @@ final class Extensions: NSObject, ObservableObject {
         }
     }
 
-    private func update(_ item: Installed) async {
+    func update(_ item: Installed) async {
+        // Permission approval can wait past the next check; its staging folder must stay its own.
+        guard updating.insert(item.id).inserted else { return }
+        defer { updating.remove(item.id) }
         var parts = URLComponents(string: "https://clients2.google.com/service/update2/crx")!
         parts.queryItems = [
             URLQueryItem(name: "response", value: "updatecheck"),
