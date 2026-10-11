@@ -19,13 +19,8 @@ struct Page: View {
         ZStack {
             // A tab put down with ⌘W has no view, and asking for one here
             // would build an empty one a frame before the stage moves on.
-            //
-            // Nor is a floating page asked for. Handing the same view over
-            // before and after the float changes nothing SwiftUI can see, so
-            // the stage was never told to take it back when it landed, and
-            // the tab stayed empty. Nothing, then the page, is a change.
             if holdsPage {
-                WebStage(page: tab.isBlank || tab.asleep || tab.floating ? nil : tab.web)
+                WebStage(page: tab.isBlank || tab.asleep ? nil : tab.web)
             }
 
             if let cover = tab.cover {
@@ -38,17 +33,6 @@ struct Page: View {
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
                     .clipped()
                     .allowsHitTesting(false)
-                    .transition(.opacity)
-            }
-
-            if tab.floating {
-                // The tab is not empty, its page is simply elsewhere. Saying so
-                // is kinder than a white rectangle.
-                Text("This page is playing in the floating window.")
-                    .font(.system(size: 13))
-                    .foregroundStyle(Palette.muted)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .background(Palette.ground)
                     .transition(.opacity)
             }
 
@@ -80,7 +64,6 @@ struct Page: View {
             }
         }
         .animation(Motion.quick, value: tab.failure)
-        .animation(Motion.quick, value: tab.floating)
         .animation(.easeOut(duration: 0.2), value: tab.cover == nil)
         .animation(.easeOut(duration: 0.16), value: tab.pull == nil)
     }

@@ -1,0 +1,61 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Video and the rest of the web</title>
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; background: #f7f8fa; color: #1e293b; font: 16px/1.5 system-ui; }
+  header { padding: 20px 40px; border-bottom: 1px solid #dde3ec; background: white; font-weight: 650; }
+  main { max-width: 1160px; margin: 32px auto; padding: 0 32px; }
+  .columns { display: grid; grid-template-columns: minmax(0, 2fr) minmax(220px, 1fr); gap: 32px; }
+  video, iframe { width: 100%; aspect-ratio: 16/9; display: block; background: black; border: 0; object-fit: contain; }
+  h1 { font-size: 30px; line-height: 1.2; margin: 24px 0 12px; }
+  h2 { font-size: 20px; margin-top: 0; }
+  .card { padding: 24px; background: white; border: 1px solid #dde3ec; border-radius: 12px; margin-bottom: 24px; }
+  label { display: block; font-weight: 600; }
+  input { width: 100%; font: inherit; padding: 10px; border: 1px solid #aebccb; border-radius: 6px; margin: 8px 0 12px; }
+  button { background: #2359b5; color: white; border: 0; padding: 10px 18px; border-radius: 6px; font: inherit; }
+  a { color: #2359b5; }
+  .muted { color: #64748b; font-size: 14px; }
+  #more { min-height: 700px; margin-top: 28px; }
+</style>
+<header>Search / Native picture-in-picture / Local test page</header>
+<main>
+  <div class="columns">
+    <section>
+      <div id="player"><video src="landscape.mp4" autoplay muted loop controls playsinline></video></div>
+      <h1>Watch the video. Keep using the page.</h1>
+      <p>The video can play in its own window while this article, its links, and the form remain available.</p>
+      <p class="muted">Local fixture. The moving test pattern makes every edge of the video easy to check.</p>
+      <section id="more" class="card"><h2>More website content</h2>
+        <p>Scroll here while picture-in-picture is active. Returning the video should preserve your reading position and anything you typed.</p>
+        <a href="#end" id="jump">Jump to the end of the article</a>
+        <p style="margin-top:450px" id="end">You reached the end. The page is still interactive.</p>
+      </section>
+    </section>
+    <aside>
+      <div class="card"><h2>Keep working</h2><form id="form">
+        <label for="note">A note on this page</label><input id="note" placeholder="Type while the video floats">
+        <button id="save">Save note</button><p id="saved" aria-live="polite"></p>
+      </form></div>
+      <div class="card"><h2>What to check</h2><p>Scroll the page, use its controls, resize the browser, and switch tabs.</p><p>Only the video should leave the page.</p></div>
+    </aside>
+  </div>
+</main>
+<script>
+  document.querySelector('form').onsubmit = e => {
+    e.preventDefault(); document.querySelector('#saved').textContent = 'Saved: ' + document.querySelector('#note').value;
+  };
+  window.fixtureIdentity = Math.random();
+  const kind = new URL(location).searchParams.get('kind');
+  const video = document.querySelector('video');
+  if (kind === 'portrait') { video.src = 'portrait.mp4'; video.style.aspectRatio = '9/16'; video.style.maxHeight = '400px'; }
+  if (kind === 'disabled') video.disablePictureInPicture = true;
+  if (kind === 'empty') video.remove();
+  if (kind === 'iframe') {
+    const frame = document.createElement('iframe');
+    frame.src = location.href.replace('127.0.0.1', 'localhost').replace('kind=iframe', 'kind=embedded');
+    frame.allow = 'autoplay; picture-in-picture';
+    video.replaceWith(frame);
+  }
+  if (kind === 'embedded') { document.body.replaceChildren(video); video.style.width = '100vw'; }
+</script>
