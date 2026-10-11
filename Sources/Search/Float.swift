@@ -78,7 +78,8 @@ final class Float: ObservableObject {
                 automatic = false
             }
             tab.floating = true
-        } else if self.tab === tab, self.frame?.id == frame.id, !starting {
+        } else if self.tab === tab, self.frame?.id == frame.id, !starting || tab.floating {
+            // A native close can arrive before the successful entry reply.
             clear()
         }
     }

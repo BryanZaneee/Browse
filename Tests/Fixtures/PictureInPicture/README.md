@@ -37,5 +37,3 @@ For the visible end-to-end pass, use the actual toolbar/menu and macOS controls.
 | Restore after switching tabs or minimizing the source window | The source tab/window returns in a normal interactive build; automation profiles suppress window activation and cannot validate the minimized-window step. |
 | Play an authorized DRM stream inline, then enter PiP and return | Content the browser/service permits continues in the same media session. Record the service/content privately; a clear-video fixture is not DRM coverage. |
 | Try a site/player that disallows PiP | Search respects the restriction and leaves the page usable. |
-
-Operator verification on 2026-10-11, macOS 27.0.1, Apple Silicon, the development build from this branch: the user confirmed protected playback, usable webpage content, native resizing, and free placement with Command-drag. The streaming service was not named, so this does not establish coverage for every DRM provider. Older OS releases and minimized-window Restore remain separate checks.

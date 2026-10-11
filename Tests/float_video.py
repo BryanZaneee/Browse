@@ -170,6 +170,17 @@ def main():
         t.ok('closing the source tab clears the native session',not state(other)['owner'])
         tab = sv.sp('open',url=base)['resultID']; sv.sp('select',id=tab)
         wait(lambda:state(tab),lambda x:x['available'])
+        sv.cmd({'do':'eval','id':tab,'world':'search','js':"const enter = __searchPiP.enter; __searchPiP.enter = async (...args) => { const ok = await enter(...args); await new Promise(r => setTimeout(r,700)); return ok; }; true"})
+        with ThreadPoolExecutor(max_workers=1) as executor:
+            entering = executor.submit(pip,tab,'enter')
+            wait(lambda:state(tab),lambda x:x['pending'] and x['active'])
+            js(tab,"document.querySelector('video').webkitSetPresentationMode('inline')")
+            wait(lambda:js(tab,"document.querySelector('video').webkitPresentationMode"),lambda x:x=='inline')
+            result = entering.result(timeout=8)
+        t.ok('an early native exit cannot be undone by a late entry reply',result['result']=='cancelled' and not state(tab)['active'] and not state(tab)['busy'],result)
+        sv.sp('close',id=tab)
+        tab = sv.sp('open',url=base)['resultID']; sv.sp('select',id=tab)
+        wait(lambda:state(tab),lambda x:x['available'])
         # Delay the reply, so cancellation is checked even on a fast native transition.
         sv.cmd({'do':'eval','id':tab,'world':'search','js':"const enter = __searchPiP.enter; __searchPiP.enter = async (...args) => { const ok = await enter(...args); await new Promise(r => setTimeout(r,700)); return ok; }; true"})
         with ThreadPoolExecutor(max_workers=1) as executor:

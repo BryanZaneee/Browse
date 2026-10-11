@@ -160,8 +160,8 @@ final class PaneStage: NSView {
         if ids != watched {
             watched = ids
             // A tab going from blank to a page or to sleep changes what
-            // its slot holds; the tab says so, not the
-            // window. Put right once per turn of the run loop, however many
+            // its slot holds; the tab says so, not the window. Put right
+            // once per turn of the run loop, however many
             // of its values changed in it.
             watching = tabs.map { tab in
                 tab.objectWillChange.sink { [weak self] _ in self?.queue() }
