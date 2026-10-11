@@ -1,86 +1,214 @@
 #!/usr/bin/env python3
-"""The floating video's isolation (Float.swift, Isolate.on) on local pages.
+"""Native PiP regression checks. Build with ./build.sh debug, then run this file.
 
-Build first (`./build.sh`), then `python3 Tests/float_video.py`. Each page
-holds a playing video under an ancestor that makes a box of its own for
-fixed elements (a transform, a filter, containment…), is drawn only when on
-screen, or is faded out. The isolation script is run on an ordinary tab of
-a hidden probe — the floating window itself is never opened — and the video
-must then fill the page's view and be visible.
+Uses an isolated Search probe and loopback fixtures. These checks briefly open
+macOS's PiP window; the source browser starts hidden. --screenshots DIR captures
+the source page and toolbar through the existing bench picture command.
 """
+import argparse
 import functools
 import json
-import sys
-import tempfile
 import threading
 import time
+from concurrent.futures import ThreadPoolExecutor
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parent))
-import split_view as sv  # noqa: E402
+import split_view as sv
 
 ROOT = Path(__file__).resolve().parents[1]
-CASES = {
-    "plain": "",
-    "transform": "transform:translateZ(0);",
-    "filter": "filter:blur(0px);",
-    "contain": "contain:paint;",
-    "will-change": "will-change:transform;",
-    "content-visibility": "content-visibility:auto; contain-intrinsic-size:auto 300px;",
-    "opacity": "opacity:0;",
-    "perspective": "perspective:100px;",
-    "backdrop": "backdrop-filter:blur(1px);",
-    "container": "container-type:inline-size;",
-}
-PAGE = """<!doctype html><meta charset=utf-8><title>{name}</title>
-<style>body{{margin:0}} .feed>div{{height:600px;border-bottom:1px solid #ccc}}</style>
-<div class=feed><div>post</div><div>post</div>
-<div style="position:relative;width:640px;height:360px;margin:40px auto;overflow:hidden;{style}">
-<div style="position:absolute;inset:0"><video muted playsinline style="width:100%;height:100%"></video></div></div>
-<div>post</div><div>post</div></div>
-<canvas width=320 height=180 style="display:none"></canvas>
-<script>
-var c=document.querySelector('canvas'),g=c.getContext('2d'),n=0;
-setInterval(function(){{g.fillStyle='hsl('+(n++*7%360)+',70%,50%)';g.fillRect(0,0,320,180);}},40);
-var v=document.querySelector('video'); v.srcObject=c.captureStream(25); v.play();
-window.scrollTo(0,500);
-</script>"""
-PROBE = """(function(){var v=document.querySelector('video');var r=v.getBoundingClientRect();
-var seen=v.checkVisibility?v.checkVisibility({contentVisibilityAuto:true,opacityProperty:true,visibilityProperty:true}):true;
-return JSON.stringify({x:r.left,y:r.top,w:r.width,h:r.height,iw:innerWidth,ih:innerHeight,seen:seen})})()"""
+sv.use('native-pip-tests')
+
+class Quiet(SimpleHTTPRequestHandler):
+    def log_message(self, *args): pass
+
+
+def wait(read, check=lambda x: bool(x), seconds=8):
+    end = time.monotonic() + seconds
+    while True:
+        value = read()
+        if check(value): return value
+        if time.monotonic() > end: raise AssertionError(f'Timed out: {value}')
+        time.sleep(.1)
+
+
+def js(tab, code):
+    result = sv.cmd({'do': 'eval', 'id': tab, 'js': code})
+    assert 'error' not in result, result
+    return result.get('value')
+
+
+def state(tab, **fields): return sv.cmd({'do': 'pip', 'action': 'state', 'id': tab, **fields})
+def pip(tab, action, **fields):
+    result = sv.cmd({'do': 'pip', 'action': action, 'id': tab, **fields})
+    if action == 'exit': wait(lambda:state(tab, **fields),lambda x:not x['busy'])
+    return result
+
+def geometry(tab):
+    return json.loads(js(tab, "JSON.stringify({id:fixtureIdentity,w:innerWidth,h:innerHeight,scroll:scrollY,video:document.querySelector('video')?.getBoundingClientRect().toJSON(),form:document.querySelector('#note')?.value})"))
 
 
 def main():
-    pages = tempfile.mkdtemp(prefix="search-float-")
-    for name, style in CASES.items():
-        Path(pages, f"{name}.html").write_text(PAGE.format(name=name, style=style))
-    class Quiet(SimpleHTTPRequestHandler):
-        def log_message(self, *args):
-            pass
-    handler = functools.partial(Quiet, directory=pages)
-    server = ThreadingHTTPServer(("127.0.0.1", 0), handler)
+    parser = argparse.ArgumentParser(); parser.add_argument('--screenshots', type=Path); args = parser.parse_args()
+    server = ThreadingHTTPServer(('127.0.0.1', 0), functools.partial(Quiet, directory=str(ROOT/'Tests/Fixtures/PictureInPicture')))
     threading.Thread(target=server.serve_forever, daemon=True).start()
-    base = f"http://127.0.0.1:{server.server_port}"
-    source = (ROOT / "Sources/Search/Float.swift").read_text()
-    start = source.index('static let on = """') + len('static let on = """')
-    isolate = source[start:source.index('"""', start)].strip().replace("\\\\", "\\")
+    base = f'http://127.0.0.1:{server.server_port}/index.html'
     t = sv.T()
     try:
-        sv.setup(); sv.launch()
-        for name in CASES:
-            tab = sv.sp("open", url=f"{base}/{name}.html")["resultID"]
-            time.sleep(1.5)
-            said = sv.cmd({"do": "eval", "id": tab, "js": isolate, "world": "search"}).get("value")
-            time.sleep(0.4)
-            p = json.loads(sv.cmd({"do": "eval", "id": tab, "js": PROBE}).get("value"))
-            fills = abs(p["x"]) < 1 and abs(p["y"]) < 1 and abs(p["w"] - p["iw"]) < 1 and abs(p["h"] - p["ih"]) < 1
-            t.ok(f"{name}: the video fills the view and is drawn", said == "floating" and fills and p["seen"], p)
-            sv.sp("close", id=tab)
+        sv.setup(**{'float.leave': False, 'float.away': False}); sv.launch()
+        sv.cmd({'do': 'window'})
+        t.ok('the optional toolbar button defaults to off', not sv.cmd({'do':'pip'})['buttonEnabled'])
+        sv.cmd({'do':'ui','pipButton':True})
+        t.ok('the toolbar button can be enabled', sv.cmd({'do':'pip'})['buttonEnabled'])
+        for kind in ['landscape', 'portrait', 'iframe']:
+            tab = sv.sp('open', url=f'{base}?kind={kind}')['resultID']
+            sv.sp('select', id=tab)
+            wait(lambda: state(tab), lambda x: x.get('available'))
+            js(tab, "document.querySelector('#note').value='My draft'; window.scrollTo(0,80)")
+            before = geometry(tab)
+            result = pip(tab, 'enter')
+            t.ok(f'{kind}: native entry succeeds', result.get('result') == 'started', result)
+            wait(lambda: state(tab), lambda x: x.get('active'))
+            after = geometry(tab)
+            t.ok(f'{kind}: entry keeps the same document and geometry', before == after, [before, after])
+            t.ok(f'{kind}: the live page remains attached to the browser', state(tab)['inBrowser'])
+            js(tab, "document.querySelector('#form').requestSubmit(); document.querySelector('#jump').click()")
+            t.ok(f'{kind}: forms and links remain usable', js(tab, "document.querySelector('#saved').textContent === 'Saved: My draft' && location.hash === '#end' && scrollY > 80"))
+            if kind != 'iframe':
+                t.ok(f'{kind}: actual WebKit presentation is native PiP', js(tab, "document.querySelector('video').webkitPresentationMode") == 'picture-in-picture')
+            pip(tab, 'exit')
+            wait(lambda: state(tab), lambda x: not x.get('active'))
+            t.ok(f'{kind}: return preserves the page and form', js(tab, "document.querySelector('#note').value === 'My draft' && document.querySelector('#form').checkVisibility()"))
+            if kind != 'iframe':
+                t.ok(f'{kind}: returning a playing video keeps it playing',js(tab,"!document.querySelector('video').paused"))
+            pip(tab, 'enter')
+            if kind != 'iframe':
+                js(tab, "document.querySelector('video').webkitSetPresentationMode('inline')")
+                wait(lambda: state(tab), lambda x: not x.get('active'))
+                t.ok(f'{kind}: site exit clears Search state', not state(tab)['active'])
+            pip(tab, 'exit')
+            sv.sp('close', id=tab)
+        tab = sv.sp('open', url=base)['resultID']; sv.sp('select', id=tab)
+        wait(lambda: state(tab), lambda x: x.get('available'))
+        pip(tab, 'enter')
+        other = sv.sp('open', url=base+'?kind=empty')['resultID']
+        sv.sp('select', id=other); sv.sp('select', id=tab)
+        t.ok('manual PiP survives switching away and returning', state(tab)['active'] and state(tab)['inBrowser'])
+        sv.sp('select',id=other); pip(tab,'restore')
+        wait(lambda:state(tab),lambda x:not x['active'])
+        t.ok('native Restore returns to the source tab',sv.sp('state')['activeID']==tab and state(tab)['inBrowser'])
+        pip(tab,'enter')
+        sv.cmd({'do':'resize', 'width':1050, 'height':760, 'steps':3})
+        t.ok('browser resizing keeps native PiP and page content', state(tab)['active'] and js(tab,"document.querySelector('#form').checkVisibility()"))
+        pip(tab, 'exit'); wait(lambda: state(tab), lambda x: not x['active'])
+        for n in range(5):
+            result = pip(tab, 'enter')
+            t.ok(f'rapid round trip {n+1}: native entry', result.get('result') == 'started', result)
+            pip(tab, 'exit'); wait(lambda: state(tab), lambda x: not x['active'])
+        js(tab, "document.querySelector('video').pause()")
+        wait(lambda: js(tab, "document.querySelector('video').paused"))
+        pip(tab,'enter')
+        js(tab,"document.querySelector('video').pause()")
+        wait(lambda:js(tab,"document.querySelector('video').paused"))
+        pip(tab,'exit')
+        wait(lambda:state(tab),lambda x:not x['active'])
+        t.ok('returning a paused video leaves it paused',js(tab,"document.querySelector('video').paused"))
+        time.sleep(.1)
+        result = sv.cmd({'do':'pip','action':'enter','id':tab,'automatic':True})
+        t.ok('automatic PiP does not start a paused video', result['result'] == 'unavailable', result)
+        js(tab, "document.querySelector('video').play(); true")
+        wait(lambda: js(tab, "!document.querySelector('video').paused")); time.sleep(.1)
+        result = sv.cmd({'do':'pip','action':'enter','id':tab,'automatic':True})
+        t.ok('automatic PiP follows a playing video', result['result'] == 'started', result)
+        sv.sp('select',id=other); sv.sp('select',id=tab)
+        wait(lambda: state(tab), lambda x: not x['active'])
+        t.ok('automatic PiP returns when its source tab is selected', not state(tab)['active'])
+        wait(lambda: (js(tab, "document.querySelector('video').webkitSetPresentationMode('picture-in-picture')"), state(tab))[1], lambda x: x['active'])
+        t.ok('site-initiated PiP is reflected in Search', state(tab)['active'])
+        pip(tab,'exit'); wait(lambda: state(tab), lambda x: not x['active'])
+        if args.screenshots:
+            args.screenshots = args.screenshots.resolve()
+            args.screenshots.mkdir(parents=True, exist_ok=True)
+            sv.cmd({'do':'resize','width':1200,'height':850,'steps':1})
+            js(tab, "window.scrollTo(0,0); document.querySelector('#note').value='This draft stays on the page'")
+            sv.cmd({'do':'pages','on':True})
+            time.sleep(.5)
+            sv.cmd({'do':'picture','path':str(args.screenshots/'after-inline.png')})
+            pip(tab,'enter')
+            time.sleep(.5)
+            sv.cmd({'do':'picture','path':str(args.screenshots/'after-native-pip.png'),'page':False})
+            pip(tab,'exit'); wait(lambda: state(tab), lambda x: not x['active'])
+            t.ok('return restores inline presentation without a resize',js(tab,"document.querySelector('video').webkitPresentationMode")=='inline')
+            time.sleep(.2)
+            sv.cmd({'do':'picture','path':str(args.screenshots/'after-return.png'),'page':False})
+            sv.cmd({'do':'ui','sidebar':True})
+            sv.cmd({'do':'resize','width':1200,'height':850,'steps':1})
+            time.sleep(1)
+            sv.cmd({'do':'picture','path':str(args.screenshots/'after-sidebar.png')})
+            sv.cmd({'do':'ui','sidebar':False})
+            sv.cmd({'do':'pages','on':False})
+        pip(tab,'enter')
+        js(tab, "location.href='index.html?kind=empty'")
+        wait(lambda: js(tab,'document.readyState'), lambda x: x == 'complete')
+        wait(lambda: state(tab), lambda x: not x['active'] and not x['available'])
+        t.ok('source navigation clears PiP and video availability', not state(tab)['active'])
+        sv.sp('close',id=tab); sv.sp('close',id=other)
+        tab = sv.sp('open',url=base+'?kind=iframe')['resultID'];sv.sp('select',id=tab)
+        wait(lambda: state(tab),lambda x:x['available']);pip(tab,'enter')
+        js(tab,"document.querySelector('iframe').remove()")
+        wait(lambda: state(tab),lambda x:not x['active'] and not x['available'])
+        t.ok('removing an embedded player clears its session',not state(tab)['active'])
+        sv.sp('close',id=tab)
+        tab = sv.sp('open',url=base)['resultID']; sv.sp('select',id=tab)
+        wait(lambda:state(tab),lambda x:x['available'])
+        sv.cmd({'do':'keyeq','chars':'p','code':35,'mods':['shift']})
+        wait(lambda:state(tab),lambda x:x['active'])
+        t.ok('the existing shortcut enters native PiP',state(tab)['active'])
+        other = sv.sp('open',url=base+'?kind=empty')['resultID']
+        sv.sp('close',id=tab)
+        wait(lambda:state(other),lambda x:not x['busy'])
+        t.ok('closing the source tab clears the native session',not state(other)['owner'])
+        tab = sv.sp('open',url=base)['resultID']; sv.sp('select',id=tab)
+        wait(lambda:state(tab),lambda x:x['available'])
+        # Delay the reply, so cancellation is checked even on a fast native transition.
+        sv.cmd({'do':'eval','id':tab,'world':'search','js':"const enter = __searchPiP.enter; __searchPiP.enter = async (...args) => { const ok = await enter(...args); await new Promise(r => setTimeout(r,700)); return ok; }; true"})
+        with ThreadPoolExecutor(max_workers=1) as executor:
+            entering = executor.submit(pip,tab,'enter')
+            wait(lambda:state(tab),lambda x:x['pending'])
+            sv.sp('close',id=tab)
+            result = entering.result(timeout=8)
+        wait(lambda:state(other),lambda x:not x['busy'])
+        t.ok('closing a source during entry cancels its request',result['result']=='cancelled' and not state(other)['owner'],result)
+        tab = sv.sp('open',url=base)['resultID']; sv.sp('select',id=tab)
+        wait(lambda:state(tab),lambda x:x['available']); pip(tab,'enter')
+        sv.cmd({'do':'windows','action':'new'})
+        second = sv.sp('open',url=base,window=2)['resultID']; sv.sp('select',id=second,window=2)
+        sv.cmd({'do':'windows','action':'front','n':2})
+        wait(lambda:state(second,window=2),lambda x:x['available'])
+        sv.cmd({'do':'keyeq','chars':'p','code':35,'mods':['shift'],'window':2})
+        wait(lambda:state(second,window=2),lambda x:x['active'])
+        t.ok('another window can take over PiP',not state(tab,window=1)['active'] and state(second,window=2)['active'])
+        sv.cmd({'do':'windows','action':'close','n':2})
+        sv.cmd({'do':'windows','action':'front','n':1})
+        wait(lambda:pip(tab,'enter'),lambda x:x['result']=='started')
+        t.ok('closing the source window permits a new session',state(tab)['active'])
+        pip(tab,'exit'); wait(lambda:state(tab),lambda x:not x['active'])
+        sv.sp('close',id=tab); sv.sp('close',id=other)
+        for kind in ['disabled', 'empty']:
+            tab = sv.sp('open', url=f'{base}?kind={kind}')['resultID']
+            wait(lambda: js(tab, 'document.readyState'), lambda x: x == 'complete')
+            time.sleep(.3)
+            before = geometry(tab)
+            result = pip(tab, 'enter')
+            t.ok(f'{kind}: refused without disturbing the page', result.get('result') == 'unavailable' and geometry(tab) == before and not state(tab)['active'], result)
+            sv.sp('close', id=tab)
+        tab = sv.sp('open',url=base)['resultID']; sv.sp('select',id=tab)
+        wait(lambda:state(tab),lambda x:x['available']); pip(tab,'enter')
+        sv.cmd({'do':'windows','action':'close','n':1})
+        wait(lambda:state(tab),lambda x:not x['active'] and not x['owner'])
+        t.ok('closing the last browser window also returns its video',not state(tab)['active'])
     finally:
-        t.done(); sv.finish()
-    sys.exit(1 if t.failed else 0)
+        t.done(); sv.finish(); server.shutdown()
+    raise SystemExit(1 if t.failed else 0)
 
-
-if __name__ == "__main__":
-    main()
+if __name__ == '__main__': main()

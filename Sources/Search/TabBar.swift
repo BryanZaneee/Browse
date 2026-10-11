@@ -159,6 +159,7 @@ struct TabBar: View {
                         if !browser.prefs.navigationLeft {
                             Helm(browser: browser).padding(.trailing, 8)
                         }
+                        if let tab = browser.active { VideoDoor(browser: browser, tab: tab) }
                         BookmarkDoor(browser: browser, arrowEdge: .bottom)
                     }
                     .background {

@@ -325,8 +325,8 @@ struct SettingsPanel: View {
                 Switch(on: $prefs.holdsHistory)
             }
             Rule()
-            Line("Flick the floating video to a corner", "Two fingers on it send it to the corner or edge they point at, instead of pushing it along; a strong swipe at the side of the screen it is against tucks it in there, a sliver left to bring it back by. Dragging still puts it anywhere") {
-                Switch(on: $prefs.floatFlicks)
+            Line("Show picture-in-picture button", "A button beside Bookmarks when a video can play in its own window. The rest of the page stays usable; ⇧⌘P works with or without the button") {
+                Switch(on: $prefs.showsPiPButton)
             }
             Rule()
             Line("Videos wait for a click", "Videos don't start by themselves, even without sound; they play when you press play. Tabs already open follow once closed and opened again, or after they've slept") {

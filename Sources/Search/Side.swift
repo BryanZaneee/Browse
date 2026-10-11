@@ -537,6 +537,7 @@ private struct SideFoot: View {
         HStack(spacing: 2) {
             if prefs.usesSpaces { SpaceDot(browser: browser) }
             ExtensionSlot(edge: .trailing, room: room)
+            if let tab = browser.active { VideoDoor(browser: browser, tab: tab) }
             BookmarkDoor(browser: browser, arrowEdge: .trailing)
             // Only while a download is running, and a moment after.
             FetchDoor(browser: browser, fetches: fetches)
@@ -551,6 +552,7 @@ private struct SideFoot: View {
     private var room: Int {
         let door: CGFloat = 26 + 2
         var kept = 2  // the puzzle and bookmarks
+        if prefs.showsPiPButton { kept += 1 }
         if prefs.usesSpaces { kept += 1 }
         if FetchDoor.shows(fetches, prefs) { kept += 1 }
         let free = prefs.sideWidth - 2 * 10 + 2 - CGFloat(kept) * door
