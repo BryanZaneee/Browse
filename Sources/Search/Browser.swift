@@ -133,14 +133,10 @@ final class Browser: NSObject, ObservableObject {
 
     let tabSwitcher = TabSwitcher()
 
-    /// The tab whose page is currently out in the little window. Nothing
-    /// floating means no window: the two are checked against each other rather
-    /// than trusted to stay in step.
-    @Published private(set) var floating: Tab.ID? {
-        didSet {
-            guard floating == nil, floater.showing else { return }
-            floater.drop()
-        }
+    /// Includes a pending entry so closing its tab cancels the request too.
+    var floating: Tab.ID? {
+        guard let tab = floater.tab, tabs.contains(where: { $0 === tab }) else { return nil }
+        return tab.id
     }
 
     /// Everything there is to set. Held here so the whole window redraws when
@@ -1619,55 +1615,6 @@ final class Browser: NSObject, ObservableObject {
         if prefs.usesSpaces { preloadSpaces() }
     }
 
-    /// The floating video's buttons answer the window whose video it is:
-    /// set as it comes out of one (see lift).
-    private func ownFloater() {
-        floater.onReturn = { [weak self] in
-            guard let self else { return }
-            // The window closes first, and unconditionally. Hanging that on
-            // finding the tab again is how a little window survives the button
-            // meant to dismiss it.
-            let came = self.floating
-            self.land()
-            if let came, let tab = self.tabs.first(where: { $0.id == came }) {
-                self.select(tab)
-            }
-            // Never a test run's: a probe started hidden stays off every screen.
-            guard !Store.testing else { return }
-            NSApp.activate(ignoringOtherApps: true)
-            NSApp.windows.first { $0.contentView != nil }?.makeKeyAndOrderFront(nil)
-        }
-        floater.onSkip = { [weak self] seconds in
-            guard let self, let id = self.floating,
-                  let tab = self.tabs.first(where: { $0.id == id })
-            else { return }
-            tab.web.evaluateInSearch(Isolate.skip(seconds))
-        }
-        floater.onProgress = { [weak self] answer in
-            guard let self, let id = self.floating,
-                  let tab = self.tabs.first(where: { $0.id == id })
-            else { return }
-            tab.web.evaluateInSearch(Isolate.where_) { found in
-                MainActor.assumeIsolated {
-                    guard let pair = found as? [Any], pair.count == 2,
-                          let through = pair[0] as? Double,
-                          let playing = pair[1] as? Bool
-                    else { return }
-                    answer(through, playing)
-                }
-            }
-        }
-        floater.onPlayPause = { [weak self] answer in
-            guard let self, let id = self.floating,
-                  let tab = self.tabs.first(where: { $0.id == id })
-            else { return }
-            tab.web.evaluateInSearch(Isolate.toggle) { playing in
-                MainActor.assumeIsolated { answer((playing as? Bool) ?? true) }
-            }
-        }
-        floater.onClose = { [weak self] in self?.land() }
-    }
-
     /// The row of tabs the space on screen had last time, or one empty tab.
     /// The pins are every window's (see Pins.swift): a window new to this
     /// space has them too, before an empty tab.
@@ -2622,9 +2569,9 @@ final class Browser: NSObject, ObservableObject {
         guard tab.id != activeID else { return }
         // The AI panel is about the page it was opened on.
         if assisting != nil { closeAssistant() }
-        // Coming back to the tab whose video is out brings it home first, so
-        // it is never lifted and landed in the same breath.
-        if floating == tab.id { land() }
+        // An automatic float comes home with its tab; a manual one stays
+        // out so returning to read the page does not interrupt it.
+        if floating == tab.id, floater.automatic { land() }
         if floatPrevious { leaving() }
         activeID = tab.id
         tab.touch()
@@ -3663,70 +3610,37 @@ final class Browser: NSObject, ObservableObject {
         if liftedAway, let id = floating, id == activeID { land() }
     }
 
-    /// ⌘⇧P, for lifting one out by hand.
+    /// The menu, shortcut and toolbar button all use the same presentation.
     func toggleFloat() {
         if floater.showing {
-            land()
+            let returning = floater.tab === active || active?.hasVideo != true
+            let target = active
+            floater.drop { [weak self] in
+                guard let self, !returning, self.active === target else { return }
+                self.lift(target, quietly: false, otherwise: self.otherPane)
+            }
             return
         }
         lift(active, quietly: false, otherwise: otherPane)
     }
 
-    /// Everything but the video goes out of the way, and the page it lives in
-    /// moves house — into a small window that stays above everything.
-    /// `otherwise`: the other page of a pair, tried when this one has
-    /// nothing playing.
     private func lift(_ tab: Tab?, quietly: Bool, otherwise: Tab? = nil) {
-        // A tab just put down with ⌘W has no page to lift a video out of, and
-        // asking it would only build an empty view to ask.
         guard let tab, !tab.isBlank, !tab.asleep, !floater.showing else {
             if let otherwise { lift(otherwise, quietly: quietly) }
             return
         }
-        // A video filling the screen stays in its own space, as in Safari.
-        // Its page is lent to WebKit's full-screen window, and moving it out
-        // into the floating one left that window up, empty and black, to
-        // come back to.
-        guard tab.web.fullscreenState == .notInFullscreen else { return }
-        // On its own, only from a site whose video is the point of the site.
-        // A hero background on a studio's home page is a video too, and it
-        // followed people around the desktop. Nor from one you grounded in
-        // its site card. ⌘⇧P still lifts from anywhere.
         if quietly, !Players.knows(tab.address) || tab.pageAddress?.host().map(Grounded.holds) == true {
             if let otherwise { lift(otherwise, quietly: quietly) }
             return
         }
-        tab.web.evaluateInSearch(Isolate.on) { [weak self] answer in
-            MainActor.assumeIsolated {
-                guard let self else { return }
-                guard (answer as? String) == "floating" else {
-                    if let otherwise { return self.lift(otherwise, quietly: quietly) }
-                    if !quietly { self.announce("Nothing is playing here") }
-                    return
-                }
-                self.floating = tab.id
-                tab.floating = true
-                self.ownFloater()
-                self.floater.lift(tab.web)
-            }
+        floater.lift(tab, automatically: quietly) { [weak self] result in
+            guard let self, case .unavailable = result else { return }
+            if let otherwise { self.lift(otherwise, quietly: quietly) }
+            else if !quietly { self.announce("Picture in picture isn't available for this video") }
         }
     }
 
-    /// Back into its tab. The stage takes the page again on its next layout,
-    /// which is what the self-healing there is for.
-    func land() {
-        // Another window's video: that window takes it back.
-        if floating == nil, let owner = Browsers.all.first(where: { $0 !== self && $0.floating != nil }) {
-            return owner.land()
-        }
-        // The window closes whatever else is true. Tying that to the bookkeeping
-        // is how a little window outlives the thing that opened it.
-        if floater.showing { floater.drop() }
-        guard let id = floating, let tab = tabs.first(where: { $0.id == id }) else { return }
-        floating = nil
-        tab.floating = false
-        tab.web.evaluateInSearch(Isolate.off)
-    }
+    func land() { floater.drop() }
 
     func prepare(_ tab: Tab) {
         tab.delegate = self
@@ -4300,9 +4214,23 @@ extension Browser: WKNavigationDelegate, WKUIDelegate {
         return true
     }
 
+    @objc(_webViewFullscreenMayReturnToInline:)
+    func videoMayReturnToInline(_ webView: WKWebView) {
+        guard let tab = tab(for: webView), floater.tab === tab else { return }
+        // Native Restore waits for its source document to become visible.
+        select(tab, floatPrevious: false)
+        land()
+        guard !Store.testing else { return }
+        if let window, window.isMiniaturized { window.deminiaturize(nil) }
+        Browsers.show(self)
+    }
+
     func webView(_ webView: WKWebView, didStartProvisionalNavigation navigation: WKNavigation!) {
         guard let navigation else { return }
-        tab(for: webView)?.extensionReturn.started(navigation, at: webView.url)
+        if let tab = tab(for: webView) {
+            floater.lost(tab)
+            tab.extensionReturn.started(navigation, at: webView.url)
+        }
     }
 
     func webView(_ webView: WKWebView, didReceiveServerRedirectForProvisionalNavigation navigation: WKNavigation!) {
