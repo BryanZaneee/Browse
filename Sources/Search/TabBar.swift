@@ -887,28 +887,50 @@ struct TabAddressField: NSViewRepresentable {
     func updateNSView(_ field: NSTextField, context: Context) {
         let coordinator = context.coordinator
         coordinator.browser = browser
+        field.setAccessibilityLabel(browser.renamingTab ? "Tab name" : "Tab address")
         coordinator.sync(field)
-        guard !coordinator.claimed else { return }
-        coordinator.claimed = true
-        DispatchQueue.main.async {
-            field.window?.makeFirstResponder(field)
-            guard let editor = field.currentEditor() as? NSTextView else { return }
-            editor.selectedTextAttributes = [
-                .backgroundColor: NSColor(Palette.ink.opacity(0.11)),
-                .foregroundColor: Palette.NS.ink,
-            ]
-            editor.selectAll(nil)
-        }
+        coordinator.claim(field)
     }
 
     @MainActor final class Coordinator: NSObject, NSTextFieldDelegate {
         var browser: Browser
-        var claimed = false
+        private var claimed = false
+        private var focusPending = false
         var synced = ""
         private var deleting = false
         private var applying = false
 
         init(browser: Browser) { self.browser = browser }
+
+        func claim(_ field: NSTextField, tries: Int = 0) {
+            guard !claimed, !focusPending else { return }
+            focusPending = true
+            let revision = browser.tabEditRevision
+            DispatchQueue.main.asyncAfter(deadline: .now() + (tries == 0 ? 0 : 0.03)) { [weak self, weak field] in
+                guard let self, let field else { return }
+                self.focusPending = false
+                guard !self.claimed, self.watcher != nil, self.browser.editingTab != nil,
+                      self.browser.tabEditRevision == revision else { return }
+                // SwiftUI can ask for focus before the sidebar field joins its window.
+                if let editor = field.window?.firstResponder as? NSTextView,
+                   let current = editor.delegate as? NSTextField,
+                   let coordinator = current.delegate as? Coordinator, coordinator.browser === self.browser {
+                    self.claimed = true
+                    return
+                }
+                guard let window = field.window, window.makeFirstResponder(field),
+                      let editor = field.currentEditor() as? NSTextView else {
+                    if tries < 15 { self.claim(field, tries: tries + 1) }
+                    return
+                }
+                self.claimed = true
+                editor.selectedTextAttributes = [
+                    .backgroundColor: NSColor(Palette.ink.opacity(0.11)),
+                    .foregroundColor: Palette.NS.ink,
+                ]
+                editor.selectAll(nil)
+            }
+        }
 
         @MainActor func sync(_ field: NSTextField) {
             guard browser.editingTab != nil else { SiteCardPanel.hideSuggestions(for: browser); return }

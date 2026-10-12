@@ -244,4 +244,42 @@ final class TabAddressTests: XCTestCase {
         }
     }
 
+    func testASecondLayoutFieldDoesNotStealTheNativeEditor() throws {
+        try withField { browser, field, editor in
+            let window = try XCTUnwrap(field.window)
+            let copy = NSHostingView(rootView: TabAddressField(browser: browser).frame(width: 300, height: 24))
+            copy.frame = NSRect(x: 0, y: 0, width: 300, height: 24)
+            window.contentView?.addSubview(copy)
+            defer { copy.removeFromSuperview() }
+            copy.layoutSubtreeIfNeeded()
+            spin()
+            XCTAssertTrue(window.firstResponder === editor)
+            editor.selectAll(nil)
+            editor.insertText("yout", replacementRange: editor.selectedRange())
+            spin()
+            XCTAssertTrue(window.firstResponder === editor)
+            XCTAssertEqual(field.stringValue, "youtube.com")
+            XCTAssertEqual(editor.selectedRange(), NSRange(location: 4, length: 7))
+        }
+    }
+
+    func testNativePasteUsesSelectionWithoutMovingMiddleCaret() throws {
+        try withField { browser, field, editor in
+            let board = NSPasteboard.withUniqueName()
+            defer { board.releaseGlobally() }
+            board.setString("https://paste.example.test/abc", forType: .string)
+            editor.selectAll(nil)
+            XCTAssertTrue(editor.readSelection(from: board))
+            spin()
+            editor.setSelectedRange(NSRange(location: 27, length: 0))
+            board.clearContents()
+            board.setString("😀", forType: .string)
+            XCTAssertTrue(editor.readSelection(from: board))
+            spin()
+            XCTAssertEqual(editor.selectedRange(), NSRange(location: 29, length: 0))
+            XCTAssertEqual(browser.tabDraft, field.stringValue)
+            XCTAssertTrue(field.stringValue.contains("😀"))
+        }
+    }
+
 }
