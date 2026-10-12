@@ -1130,7 +1130,8 @@ struct ContentView: View {
         // back, so it belongs to whatever else wants it.
         if event.keyCode == 53 {
             if browser.editingTab != nil {
-                browser.cancelTabEdit()
+                if !browser.tabOffers.isEmpty || browser.tabEnding != nil { browser.dismissTabSuggestions() }
+                else { browser.cancelTabEdit() }
                 return true
             }
             if browser.peekTab != nil {

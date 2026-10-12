@@ -862,6 +862,8 @@ struct TabAddressField: NSViewRepresentable {
         field.cell?.isScrollable = true
         field.lineBreakMode = .byClipping
         field.stringValue = browser.tabDraft
+        field.setAccessibilityLabel("Tab address")
+        context.coordinator.synced = browser.tabDraft
         context.coordinator.watch(field)
         // The site card stands under whichever field the address is in.
         SiteCardPanel.follow(browser, anchor: field)
@@ -885,9 +887,7 @@ struct TabAddressField: NSViewRepresentable {
     func updateNSView(_ field: NSTextField, context: Context) {
         let coordinator = context.coordinator
         coordinator.browser = browser
-        if !coordinator.typing, field.stringValue != browser.tabDraft {
-            field.stringValue = browser.tabDraft
-        }
+        coordinator.sync(field)
         guard !coordinator.claimed else { return }
         coordinator.claimed = true
         DispatchQueue.main.async {
@@ -901,18 +901,50 @@ struct TabAddressField: NSViewRepresentable {
         }
     }
 
-    final class Coordinator: NSObject, NSTextFieldDelegate {
+    @MainActor final class Coordinator: NSObject, NSTextFieldDelegate {
         var browser: Browser
         var claimed = false
-        var typing = false
+        var synced = ""
+        private var deleting = false
+        private var applying = false
 
         init(browser: Browser) { self.browser = browser }
 
+        @MainActor func sync(_ field: NSTextField) {
+            guard browser.editingTab != nil else { SiteCardPanel.hideSuggestions(for: browser); return }
+            let editor = field.currentEditor() as? NSTextView
+            guard editor?.hasMarkedText() != true else { return }
+            let want = browser.tabCompleted
+            if synced != want {
+                synced = want
+                if let editor {
+                    // Use the editor's undo machinery; setting stringValue clears its history.
+                    applying = true
+                    editor.insertText(want, replacementRange: NSRange(location: 0, length: (editor.string as NSString).length))
+                    applying = false
+                } else { field.stringValue = want }
+                let start = browser.tabPicked == nil ? (browser.tabDraft as NSString).length : 0
+                editor?.setSelectedRange(NSRange(location: min(start, (want as NSString).length),
+                                                length: max(0, (want as NSString).length - start)))
+            }
+            if !browser.tabOffers.isEmpty { SiteCardPanel.suggest(browser, under: field) }
+            else { SiteCardPanel.hideSuggestions(for: browser) }
+        }
+
         func controlTextDidChange(_ note: Notification) {
-            guard let field = note.object as? NSTextField else { return }
-            typing = true
-            browser.tabDraft = field.stringValue
-            typing = false
+            guard !applying, let field = note.object as? NSTextField,
+                  let editor = field.currentEditor() as? NSTextView else { return }
+            let text = field.stringValue
+            let range = editor.selectedRange()
+            let marked = editor.hasMarkedText()
+            // Replacing native text during a middle edit loses its caret and undo state.
+            let atEnd = range.length == 0 && range.location == (text as NSString).length
+            let undoing = editor.undoManager?.isUndoing == true || editor.undoManager?.isRedoing == true
+            browser.changeTabDraft(text, completing: atEnd && !deleting && !marked && !undoing,
+                                   suggesting: !marked)
+            deleting = false
+            synced = text
+            sync(field)
         }
 
         func control(
@@ -921,13 +953,31 @@ struct TabAddressField: NSViewRepresentable {
             doCommandBy command: Selector
         ) -> Bool {
             switch command {
+            case #selector(NSResponder.moveDown(_:)), #selector(NSResponder.moveUp(_:)):
+                guard !textView.hasMarkedText(), !browser.tabOffers.isEmpty else { return false }
+                browser.walkTabSuggestions(command == #selector(NSResponder.moveDown(_:)) ? 1 : -1)
+                if let field = control as? NSTextField { sync(field) }
+                return true
+            case #selector(NSResponder.insertTab(_:)):
+                guard !textView.hasMarkedText(), browser.acceptTabCompletion() else { return false }
+                if let field = control as? NSTextField { sync(field) }
+                textView.setSelectedRange(NSRange(location: (textView.string as NSString).length, length: 0))
+                return true
+            case #selector(NSResponder.deleteBackward(_:)), #selector(NSResponder.deleteForward(_:)),
+                 #selector(NSResponder.deleteWordBackward(_:)), #selector(NSResponder.deleteWordForward(_:)):
+                deleting = true
+                return false
             case #selector(NSResponder.insertNewline(_:)):
+                guard !textView.hasMarkedText() else { return false }
                 // Returning true keeps the field editing, which is what lets a
                 // refused address stay on screen instead of being thrown away.
                 browser.commitTabEdit()
                 return true
             case #selector(NSResponder.cancelOperation(_:)):
-                browser.cancelTabEdit()
+                if !browser.tabOffers.isEmpty || browser.tabEnding != nil {
+                    browser.dismissTabSuggestions()
+                    if let field = control as? NSTextField { sync(field) }
+                } else { browser.cancelTabEdit() }
                 return true
             default:
                 return false
@@ -936,8 +986,21 @@ struct TabAddressField: NSViewRepresentable {
 
         /// Clicking anywhere else keeps what was typed, as Return does.
         func controlTextDidEndEditing(_ note: Notification) {
+            finishLater(unlessEditing: note.object as? NSTextField)
+        }
+
+        @MainActor private func finishLater(unlessEditing field: NSTextField? = nil) {
             let browser = browser
-            DispatchQueue.main.async { browser.finishTabEdit() }
+            let revision = browser.tabEditRevision
+            DispatchQueue.main.async { [weak self] in
+                guard self?.watcher != nil, browser.tabEditRevision == revision,
+                      field?.currentEditor() == nil else { return }
+                // A replacement field may already own this edit after a layout change.
+                if let editor = field?.window?.firstResponder as? NSTextView,
+                   let current = editor.delegate as? NSTextField,
+                   current.delegate is Coordinator { return }
+                browser.finishTabEdit()
+            }
         }
 
         /// A press on something that takes no focus — the strip's empty
@@ -946,15 +1009,44 @@ struct TabAddressField: NSViewRepresentable {
         /// but in the field ends the edit the same way. The press itself goes
         /// on to what it was for.
         private var watcher: Any?
+        private var observers: [NSObjectProtocol] = []
 
         @MainActor func watch(_ field: NSTextField) {
             guard watcher == nil else { return }
+            field.postsFrameChangedNotifications = true
+            observers.append(NotificationCenter.default.addObserver(forName: NSView.frameDidChangeNotification, object: field, queue: .main) { [weak self, weak field] _ in
+                MainActor.assumeIsolated {
+                    guard let self, let field, !self.browser.tabOffers.isEmpty else { return }
+                    SiteCardPanel.suggest(self.browser, under: field)
+                }
+            })
+            for name in [Notification.Name.NSUndoManagerDidUndoChange, Notification.Name.NSUndoManagerDidRedoChange] {
+                observers.append(NotificationCenter.default.addObserver(forName: name, object: nil, queue: .main) { [weak self, weak field] note in
+                    MainActor.assumeIsolated {
+                        guard let self, let field, let editor = field.currentEditor() as? NSTextView,
+                              let manager = note.object as? UndoManager, manager === editor.undoManager,
+                              self.browser.editingTab != nil else { return }
+                        // AppKit can restore text without sending the control's change notification.
+                        self.browser.changeTabDraft(editor.string, completing: false)
+                        self.synced = editor.string
+                        self.sync(field)
+                    }
+                })
+            }
+            for name in [NSWindow.didResignKeyNotification, NSWindow.willCloseNotification] {
+                observers.append(NotificationCenter.default.addObserver(forName: name, object: nil, queue: .main) { [weak self, weak field] note in
+                    MainActor.assumeIsolated {
+                        guard let self, let field, let window = note.object as? NSWindow,
+                              window === field.window else { return }
+                        self.browser.cancelTabEdit()
+                    }
+                })
+            }
             watcher = NSEvent.addLocalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown, .otherMouseDown]) { [weak self, weak field] event in
                 guard let self, let field, event.window === field.window,
                       !field.bounds.contains(field.convert(event.locationInWindow, from: nil))
                 else { return event }
-                let browser = self.browser
-                DispatchQueue.main.async { browser.finishTabEdit() }
+                self.finishLater()
                 return event
             }
         }
@@ -962,6 +1054,8 @@ struct TabAddressField: NSViewRepresentable {
         @MainActor func unwatch() {
             if let watcher { NSEvent.removeMonitor(watcher) }
             watcher = nil
+            observers.forEach(NotificationCenter.default.removeObserver)
+            observers = []
         }
     }
 }

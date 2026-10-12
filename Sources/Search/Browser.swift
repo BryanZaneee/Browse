@@ -56,6 +56,7 @@ final class Browser: NSObject, ObservableObject {
                 DispatchQueue.main.async { held.forEach { $0.present() } }
             }
             guard oldValue != activeID else { return }
+            if editingTab != nil { cancelTabEdit() }
             // What was found belongs to the page just left; the words typed
             // go on to be looked for on this one.
             invalidateFindPage(retryOnActiveTab: true)
@@ -1293,11 +1294,57 @@ final class Browser: NSObject, ObservableObject {
     /// form, ready to be changed.
     @Published private(set) var editingTab: Tab.ID?
     @Published var tabDraft = ""
+    @Published private(set) var tabOffers: [Suggestion] = []
+    @Published private(set) var tabEnding: String?
+    @Published private(set) var tabPicked: Int?
+    private var tabNavigation: AnyCancellable?
+    private(set) var tabEditRevision = 0
+
+    var tabCompleted: String {
+        if let picked = tabPicked, tabOffers.indices.contains(picked) { return tabOffers[picked].key }
+        return tabDraft + (tabEnding ?? "")
+    }
+
+    func changeTabDraft(_ text: String, completing: Bool = true, suggesting: Bool = true) {
+        tabDraft = text
+        tabPicked = nil
+        guard editingTab != nil, !renamingTab, suggesting else { dismissTabSuggestions(); return }
+        tabOffers = addressSuggestions(for: text)
+        tabEnding = completing ? history.completion(for: text, among: tabOffers) : nil
+    }
+
+    func dismissTabSuggestions() {
+        tabOffers = []
+        tabEnding = nil
+        tabPicked = nil
+    }
+
+    func walkTabSuggestions(_ step: Int) {
+        guard !tabOffers.isEmpty else { return }
+        let next = (tabPicked ?? (step > 0 ? -1 : tabOffers.count)) + step
+        tabPicked = tabOffers.indices.contains(next) ? next : nil
+    }
+
+    @discardableResult
+    func acceptTabCompletion() -> Bool {
+        guard tabPicked != nil || tabEnding != nil else { return false }
+        tabDraft = tabCompleted
+        dismissTabSuggestions()
+        return true
+    }
+
+    func takeTabSuggestion(_ offer: Suggestion, for id: Tab.ID) {
+        guard editingTab == id, !renamingTab, tabOffers.contains(offer),
+              let tab = tabs.first(where: { $0.id == id }) else { return }
+        cancelTabEdit()
+        tab.go(to: offer.url)
+    }
     /// Set while that field is being used to name the tab rather than to go
     /// somewhere: the same field, the same keys, a different thing at the end.
     @Published private(set) var renamingTab = false
 
     func beginTabEdit(_ tab: Tab) {
+        cancelTabEdit()
         guard let url = tab.address else {
             edit()
             return
@@ -1305,17 +1352,19 @@ final class Browser: NSObject, ObservableObject {
         renamingTab = false
         tabDraft = Address.editable(url)
         editingTab = tab.id
+        tabNavigation = tab.$address.removeDuplicates().dropFirst().sink { [weak self] _ in self?.cancelTabEdit() }
     }
 
     /// Rename. The name the tab is wearing arrives selected, so typing
     /// replaces it; emptying the field gives the page its own title back.
     func beginTabRename(_ tab: Tab) {
+        cancelTabEdit()
         renamingTab = true
         tabDraft = tab.label
         editingTab = tab.id
     }
 
-    func commitTabEdit() {
+    func commitTabEdit(completed: Bool = true) {
         guard let id = editingTab, let tab = tabs.first(where: { $0.id == id }) else { return }
         if renamingTab {
             let typed = tabDraft.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -1324,16 +1373,22 @@ final class Browser: NSObject, ObservableObject {
             writeSession(now: true)
             return
         }
-        guard let url = destination(for: tabDraft) else {
+        let url = completed && tabPicked != nil
+            ? tabPicked.flatMap { tabOffers.indices.contains($0) ? tabOffers[$0].url : nil }
+            : destination(for: completed ? tabCompleted : tabDraft)
+        guard let url else {
             // Stay put and say so, rather than quietly throwing the edit away.
             refusals += 1
             return
         }
-        editingTab = nil
+        cancelTabEdit()
         tab.go(to: url)
     }
 
     func cancelTabEdit() {
+        tabEditRevision += 1
+        tabNavigation = nil
+        dismissTabSuggestions()
         editingTab = nil
         renamingTab = false
         tabDraft = ""
@@ -1355,7 +1410,7 @@ final class Browser: NSObject, ObservableObject {
             cancelTabEdit()
             return
         }
-        commitTabEdit()
+        commitTabEdit(completed: false)
     }
 
     // MARK: - saying so
@@ -3862,6 +3917,24 @@ final class Browser: NSObject, ObservableObject {
         focusRequest += 1
     }
 
+    /// The same local places and search fallback in either address editor.
+    func addressSuggestions(for typed: String) -> [Suggestion] {
+        guard !typed.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return [] }
+        var list = history.suggestions(for: typed, limit: 3)
+        // Last in the list, and only when what was typed cannot be a place.
+        if !typed.isEmpty, Address.url(from: typed) == nil {
+            if let (keyword, rest) = Keyword.match(typed, in: prefs.keywords),
+               let asked = Engine.url(for: rest, template: keyword.template) {
+                list.append(Suggestion(key: typed, title: keyword.name, url: asked, kind: .search))
+            } else if let asked = searchURL(for: typed) {
+                list.append(
+                    Suggestion(key: typed, title: prefs.engine.name(custom: prefs.customEngine), url: asked, kind: .search)
+                )
+            }
+        }
+        return list
+    }
+
     private func guess() {
         guard !summoning else {
             offers = openPages(matching: typed)
@@ -3898,18 +3971,7 @@ final class Browser: NSObject, ObservableObject {
         // Three places and, if it can't be a place, a search. No open pages:
         // ⌘K exists for those, and mixing them in here made the list long
         // enough that reading it cost more than typing the address would have.
-        var list = history.suggestions(for: typed, limit: 3)
-        // Last in the list, and only when what was typed cannot be a place.
-        if !typed.isEmpty, Address.url(from: typed) == nil {
-            if let (keyword, rest) = Keyword.match(typed, in: prefs.keywords),
-               let asked = Engine.url(for: rest, template: keyword.template) {
-                list.append(Suggestion(key: typed, title: keyword.name, url: asked, kind: .search))
-            } else if let asked = searchURL(for: typed) {
-                list.append(
-                    Suggestion(key: typed, title: prefs.engine.name(custom: prefs.customEngine), url: asked, kind: .search)
-                )
-            }
-        }
+        var list = addressSuggestions(for: typed)
         // First, not last: typing "settings" to reach Settings is the whole
         // point, and it would otherwise sit under a search for the word.
         let command = prefs.commandBar ? AddressCommand.matching(typed, in: self) : nil

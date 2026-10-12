@@ -20,7 +20,30 @@ enum SiteCardPanel {
     private static var panel: Panel?
     private static var resign: Any?
 
-    static var isShown: Bool { panel != nil }
+    static var isShown: Bool { panel != nil && !suggestionsShown }
+    private(set) static var suggestionsShown = false
+    private static weak var suggestionBrowser: Browser?
+
+    static func hideSuggestions(for browser: Browser) {
+        if suggestionsShown, suggestionBrowser === browser { hide() }
+    }
+
+    static func suggest(_ browser: Browser, under field: NSTextField) {
+        guard let id = browser.editingTab, !browser.renamingTab, !browser.tabOffers.isEmpty,
+              field.currentEditor() != nil, let window = field.window else { return }
+        let width = min(max(field.bounds.width + 24, 280), min(500, (window.screen?.visibleFrame.width ?? 516) - 16))
+        if suggestionsShown, suggestionBrowser === browser, let panel, panel.parent === window {
+            if let host = panel.contentView?.subviews.first as? FirstClick, host.frame.width != width {
+                host.rootView = AnyView(TabSuggestions(browser: browser, tab: id).frame(width: width))
+            }
+            position(panel, under: field)
+            return
+        }
+        hide()
+        suggestionsShown = true
+        suggestionBrowser = browser
+        present(AnyView(TabSuggestions(browser: browser, tab: id).frame(width: width)), under: field)
+    }
 
     // MARK: - when
 
@@ -50,7 +73,7 @@ enum SiteCardPanel {
                         // is in its window.
                         original = draft
                         place(tab, browser, tries: 0)
-                    } else if draft != original {
+                    } else if draft != original, !suggestionsShown {
                         // Typing somewhere else: the card was about the page you are on.
                         hide()
                     }
@@ -74,13 +97,18 @@ enum SiteCardPanel {
 
     /// Under `field`, the tab's address, in `browser`'s window.
     private static func show(for tab: Tab, in browser: Browser, under field: NSView) {
-        guard let window = field.window else { return }
+        guard field.window != nil else { return }
         hide()
         let card = SiteCard(browser: browser, tab: tab) {
             SiteCardPanel.hide()
             browser.cancelTabEdit()
         }
-        let host = FirstClick(rootView: AnyView(card.fixedSize()))
+        present(AnyView(card.fixedSize()), under: field)
+    }
+
+    private static func present(_ content: AnyView, under field: NSView) {
+        guard let window = field.window else { return }
+        let host = FirstClick(rootView: content)
         let size = host.fittingSize
         let glass = NSVisualEffectView(frame: NSRect(origin: .zero, size: size))
         glass.material = .menu
@@ -99,42 +127,40 @@ enum SiteCardPanel {
         glass.addSubview(host)
 
         let panel = Panel(contentRect: NSRect(origin: .zero, size: size), styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
+        if suggestionsShown { panel.identifier = NSUserInterfaceItemIdentifier("tab-address-suggestions") }
         panel.contentView = glass
         panel.isOpaque = false
         panel.backgroundColor = .clear
         panel.hasShadow = true
         panel.becomesKeyOnlyIfNeeded = true
         panel.hidesOnDeactivate = true
-        // Under the address, lined up with the tab's own edge — or over it,
-        // for a tab too near the bottom of the screen to have the room. Only
-        // ever beside the field: pushed up onto it, the card covered the
-        // address being edited, and what was typed there with it.
-        let spot = window.convertToScreen(field.convert(field.bounds, to: nil))
-        var origin = NSPoint(x: spot.minX - 12, y: spot.minY - 12 - size.height)
-        var above = false
-        if let screen = window.screen?.visibleFrame {
-            origin.x = min(max(origin.x, screen.minX + 8), screen.maxX - size.width - 8)
-            if origin.y < screen.minY + 8 {
-                above = true
-                origin.y = min(spot.maxY + 12, screen.maxY - size.height - 8)
-            }
-        }
-        panel.setFrameOrigin(origin)
+        position(panel, under: field)
         window.addChildWindow(panel, ordered: .above)
-        // Its size follows the card, keeping the edge nearest the address
-        // where it is.
-        host.onResize = { [weak panel] fitted in
-            guard let panel, fitted.width > 0, fitted.height > 0,
+        host.onResize = { [weak panel, weak field] fitted in
+            guard let panel, let field, fitted.width > 0, fitted.height > 0,
                   panel.frame.size != fitted else { return }
-            var frame = panel.frame
-            if !above { frame.origin.y += frame.height - fitted.height }
-            frame.size = fitted
-            panel.setFrame(frame, display: true)
+            panel.setContentSize(fitted)
+            position(panel, under: field)
         }
         self.panel = panel
         resign = NotificationCenter.default.addObserver(forName: NSApplication.didResignActiveNotification, object: nil, queue: .main) { _ in
-            MainActor.assumeIsolated { SiteCardPanel.hide() }
+            MainActor.assumeIsolated {
+                suggestionBrowser?.dismissTabSuggestions()
+                SiteCardPanel.hide()
+            }
         }
+    }
+
+    private static func position(_ panel: NSPanel, under field: NSView) {
+        guard let window = field.window else { return }
+        let spot = window.convertToScreen(field.convert(field.bounds, to: nil))
+        let size = panel.frame.size
+        var origin = NSPoint(x: spot.minX - 12, y: spot.minY - 12 - size.height)
+        if let screen = window.screen?.visibleFrame {
+            origin.x = max(screen.minX + 8, min(origin.x, screen.maxX - size.width - 8))
+            if origin.y < screen.minY + 8 { origin.y = min(spot.maxY + 12, screen.maxY - size.height - 8) }
+        }
+        panel.setFrameOrigin(origin)
     }
 
     /// A rounded rectangle that stretches to any size, its corners kept.
@@ -151,6 +177,8 @@ enum SiteCardPanel {
     }
 
     static func hide() {
+        suggestionsShown = false
+        suggestionBrowser = nil
         if let resign { NotificationCenter.default.removeObserver(resign) }
         resign = nil
         guard let panel else { return }
@@ -606,5 +634,28 @@ enum MenuMetrics {
     static let edge = NSColor(name: nil) { appearance in
         appearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua
             ? NSColor.white.withAlphaComponent(0.18) : NSColor.black.withAlphaComponent(0.26)
+    }
+}
+
+/// The omnibox's rows, beside the address actually being edited.
+private struct TabSuggestions: View {
+    @ObservedObject var browser: Browser
+    let tab: Tab.ID
+
+    var body: some View {
+        VStack(spacing: 0) {
+            ForEach(Array(browser.tabOffers.enumerated()), id: \.element.id) { index, offer in
+                Button { browser.takeTabSuggestion(offer, for: tab) } label: {
+                    Omnibox.Row(offer: offer, picked: browser.tabPicked == index)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(offer.key + (offer.title.isEmpty ? "" : ", " + offer.title))
+                .accessibilityAddTraits(browser.tabPicked == index ? .isSelected : [])
+            }
+        }
+        .padding(6)
+        .background(Palette.ground)
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("Address suggestions")
     }
 }
