@@ -257,17 +257,48 @@ final class TabAddressTests: XCTestCase {
         }
     }
 
+    func testAccessibilityDescribesKeyboardSelectionAndRename() throws {
+        try withField { browser, field, editor in
+            XCTAssertEqual(field.accessibilityLabel(), "Tab address")
+            XCTAssertTrue(field.accessibilityHelp()?.contains("Up and Down") == true)
+            editor.selectAll(nil)
+            editor.insertText("yout", replacementRange: editor.selectedRange())
+            spin()
+            try key(editor, 125, "\u{f701}")
+            let offer = try XCTUnwrap(browser.tabOffers.first)
+            let description = try XCTUnwrap(field.accessibilityValueDescription())
+            XCTAssertTrue(description.contains(offer.key))
+            XCTAssertTrue(description.contains(offer.title))
+            XCTAssertTrue(description.contains("suggestion 1 of \(browser.tabOffers.count)"))
+            XCTAssertTrue(field.currentEditor() === editor)
+            try key(editor, 48, "\t")
+            XCTAssertNil(field.accessibilityValueDescription())
+            browser.beginTabRename(try XCTUnwrap(browser.active))
+            spin()
+            XCTAssertEqual(field.accessibilityLabel(), "Tab name")
+            XCTAssertNil(field.accessibilityHelp())
+        }
+    }
+
     func testMarkedTextIsNotCompletedOrSubmitted() throws {
         try withField { browser, field, editor in
             editor.selectAll(nil)
-            editor.setMarkedText("yout", selectedRange: NSRange(location: 4, length: 0), replacementRange: editor.selectedRange())
+            editor.insertText("yout", replacementRange: editor.selectedRange())
+            spin()
+            XCTAssertTrue(SiteCardPanel.suggestionsShown)
+            editor.selectAll(nil)
+            editor.setMarkedText("にほん", selectedRange: NSRange(location: 3, length: 0), replacementRange: editor.selectedRange())
             spin()
             XCTAssertTrue(editor.hasMarkedText())
-            XCTAssertEqual(field.stringValue, "yout")
+            XCTAssertEqual(field.stringValue, "にほん")
             XCTAssertTrue(browser.tabOffers.isEmpty)
+            XCTAssertFalse(SiteCardPanel.suggestionsShown)
             let coordinator = try XCTUnwrap(field.delegate as? TabAddressField.Coordinator)
-            XCTAssertFalse(coordinator.control(field, textView: editor, doCommandBy: #selector(NSResponder.insertNewline(_:))))
-            XCTAssertFalse(coordinator.control(field, textView: editor, doCommandBy: #selector(NSResponder.cancelOperation(_:))))
+            for command in [#selector(NSResponder.insertNewline(_:)), #selector(NSResponder.cancelOperation(_:)),
+                            #selector(NSResponder.insertTab(_:)), #selector(NSResponder.moveUp(_:)),
+                            #selector(NSResponder.moveDown(_:)), #selector(NSResponder.deleteBackward(_:))] {
+                XCTAssertFalse(coordinator.control(field, textView: editor, doCommandBy: command))
+            }
             XCTAssertNotNil(browser.editingTab)
             editor.insertText("youtube", replacementRange: editor.markedRange())
             spin()

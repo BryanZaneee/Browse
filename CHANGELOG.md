@@ -33,7 +33,7 @@ in [ROADMAP.md](ROADMAP.md).
 
 ### Fixed
 
-- The address inside a tab suggests local history and completes it in place, with results expanding from the tab's own surface. Arrow keys choose a result, Tab accepts completion, and Return or a click opens it; clicking away keeps the draft without navigating. Works in the top bar, sidebar and split views, respects Reduce Motion, and keeps Site Information in the tab menu ([#534](https://github.com/driceroland/Search/issues/534))
+- The address inside a tab suggests local history and completes it in place, with results expanding from the tab's own surface. Arrow keys choose a result, Tab accepts completion, and Return or a click opens it; clicking away keeps the draft without navigating. Works in the top bar, sidebar and split views, respects Reduce Motion, announces keyboard-selected suggestions to VoiceOver, pauses suggestions during input-method composition, and keeps Site Information in the tab menu ([#534](https://github.com/driceroland/Search/issues/534))
 
 - A website an extension lists in its manifest can send it messages, as in Chrome: claude.ai, for one, hands Claude in Chrome its sign-in that way, and approving it ended in "Authorization failed". Only the sites an extension names get to, by Chrome's own rules, and Google's sites are left out. A page already open when Search starts needs a reload first. Thanks [@cunyiles](https://github.com/cunyiles) for tracking it down ([#496](https://github.com/driceroland/Search/issues/496))
 - Popovers keep their rounded corners before macOS 26: on macOS 15 the bookmarks list, the card for a bookmark, the extensions list and the site card showed square corners past their rounded edge. Asked for by email

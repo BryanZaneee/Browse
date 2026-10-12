@@ -955,6 +955,7 @@ struct TabAddressField: NSViewRepresentable {
         let coordinator = context.coordinator
         coordinator.browser = browser
         field.setAccessibilityLabel(browser.renamingTab ? "Tab name" : "Tab address")
+        field.setAccessibilityHelp(browser.renamingTab ? nil : "Use Up and Down to choose a suggestion, Tab to complete, or Return to open.")
         coordinator.sync(field)
         coordinator.claim(field)
     }
@@ -1011,7 +1012,16 @@ struct TabAddressField: NSViewRepresentable {
                 focusPending = false
             }
             let editor = field.currentEditor() as? NSTextView
-            guard editor?.hasMarkedText() != true else { return }
+            guard editor?.hasMarkedText() != true else {
+                field.setAccessibilityValueDescription(nil)
+                SiteCardPanel.hideSuggestions(for: browser)
+                return
+            }
+            field.setAccessibilityValueDescription(browser.tabPicked.flatMap { index -> String? in
+                guard browser.tabOffers.indices.contains(index) else { return nil }
+                let offer = browser.tabOffers[index]
+                return "\(offer.key)\(offer.title.isEmpty ? "" : ", " + offer.title), suggestion \(index + 1) of \(browser.tabOffers.count)"
+            })
             let want = browser.tabCompleted
             if synced != want {
                 synced = want
@@ -1050,14 +1060,21 @@ struct TabAddressField: NSViewRepresentable {
             textView: NSTextView,
             doCommandBy command: Selector
         ) -> Bool {
+            guard !textView.hasMarkedText() else { return false }
             switch command {
             case #selector(NSResponder.moveDown(_:)), #selector(NSResponder.moveUp(_:)):
-                guard !textView.hasMarkedText(), !browser.tabOffers.isEmpty else { return false }
+                guard !browser.tabOffers.isEmpty else { return false }
                 browser.walkTabSuggestions(command == #selector(NSResponder.moveDown(_:)) ? 1 : -1)
-                if let field = control as? NSTextField { sync(field) }
+                if let field = control as? NSTextField {
+                    sync(field)
+                    if let description = field.accessibilityValueDescription() {
+                        NSAccessibility.post(element: NSApplication.shared, notification: .announcementRequested,
+                            userInfo: [.announcement: description, .priority: NSAccessibilityPriorityLevel.medium.rawValue])
+                    }
+                }
                 return true
             case #selector(NSResponder.insertTab(_:)):
-                guard !textView.hasMarkedText(), browser.acceptTabCompletion() else { return false }
+                guard browser.acceptTabCompletion() else { return false }
                 if let field = control as? NSTextField { sync(field) }
                 textView.setSelectedRange(NSRange(location: (textView.string as NSString).length, length: 0))
                 return true
@@ -1066,13 +1083,11 @@ struct TabAddressField: NSViewRepresentable {
                 deleting = true
                 return false
             case #selector(NSResponder.insertNewline(_:)):
-                guard !textView.hasMarkedText() else { return false }
                 // Returning true keeps the field editing, which is what lets a
                 // refused address stay on screen instead of being thrown away.
                 browser.commitTabEdit()
                 return true
             case #selector(NSResponder.cancelOperation(_:)):
-                guard !textView.hasMarkedText() else { return false }
                 browser.escapeTabEdit()
                 if let field = control as? NSTextField { sync(field) }
                 return true
@@ -1110,6 +1125,15 @@ struct TabAddressField: NSViewRepresentable {
 
         @MainActor func watch(_ field: NSTextField) {
             guard watcher == nil else { return }
+            observers.append(NotificationCenter.default.addObserver(forName: NSTextView.didChangeSelectionNotification, object: nil, queue: .main) { [weak self, weak field] note in
+                guard let editor = note.object as? NSTextView, field?.currentEditor() === editor else { return }
+                // Marking text can change only the selection, without a control change notification.
+                DispatchQueue.main.async {
+                    guard let self, let field, field.currentEditor() === editor, editor.hasMarkedText() else { return }
+                    if !self.browser.tabOffers.isEmpty || self.browser.tabEnding != nil { self.browser.dismissTabSuggestions() }
+                    self.sync(field)
+                }
+            })
             field.postsFrameChangedNotifications = true
             observers.append(NotificationCenter.default.addObserver(forName: NSView.frameDidChangeNotification, object: field, queue: .main) { [weak self, weak field] _ in
                 MainActor.assumeIsolated {
