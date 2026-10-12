@@ -2,10 +2,8 @@
 """Native PiP regression checks. Build with ./build.sh debug, then run this file.
 
 Uses an isolated Search probe and loopback fixtures. These checks briefly open
-macOS's PiP window; the source browser starts hidden. --screenshots DIR captures
-the source page and toolbar through the existing bench picture command.
+macOS's PiP window; the source browser starts hidden.
 """
-import argparse
 import functools
 import json
 import threading
@@ -49,7 +47,6 @@ def geometry(tab):
 
 
 def main():
-    parser = argparse.ArgumentParser(); parser.add_argument('--screenshots', type=Path); args = parser.parse_args()
     server = ThreadingHTTPServer(('127.0.0.1', 0), functools.partial(Quiet, directory=str(ROOT/'Tests/Fixtures/PictureInPicture')))
     threading.Thread(target=server.serve_forever, daemon=True).start()
     base = f'http://127.0.0.1:{server.server_port}/index.html'
@@ -113,6 +110,13 @@ def main():
         pip(tab,'exit')
         wait(lambda:state(tab),lambda x:not x['active'])
         t.ok('returning a paused video leaves it paused',js(tab,"document.querySelector('video').paused"))
+        t.ok('return preserves inline presentation without a resize',js(tab,"document.querySelector('video').webkitPresentationMode")=='inline')
+        pip(tab,'enter')
+        js(tab,"document.querySelector('video').pause(); document.querySelector('video').currentTime = 1")
+        wait(lambda:js(tab,"!document.querySelector('video').seeking && Math.abs(document.querySelector('video').currentTime - 1) < .1"))
+        t.ok('seeking while floating preserves native PiP',state(tab)['active'] and js(tab,"document.querySelector('video').webkitPresentationMode")=='picture-in-picture')
+        pip(tab,'exit')
+        t.ok('return preserves the seek position',js(tab,"Math.abs(document.querySelector('video').currentTime - 1) < .1"))
         time.sleep(.1)
         result = sv.cmd({'do':'pip','action':'enter','id':tab,'automatic':True})
         t.ok('automatic PiP does not start a paused video', result['result'] == 'unavailable', result)
@@ -126,27 +130,6 @@ def main():
         wait(lambda: (js(tab, "document.querySelector('video').webkitSetPresentationMode('picture-in-picture')"), state(tab))[1], lambda x: x['active'])
         t.ok('site-initiated PiP is reflected in Search', state(tab)['active'])
         pip(tab,'exit'); wait(lambda: state(tab), lambda x: not x['active'])
-        if args.screenshots:
-            args.screenshots = args.screenshots.resolve()
-            args.screenshots.mkdir(parents=True, exist_ok=True)
-            sv.cmd({'do':'resize','width':1200,'height':850,'steps':1})
-            js(tab, "window.scrollTo(0,0); document.querySelector('#note').value='This draft stays on the page'")
-            sv.cmd({'do':'pages','on':True})
-            time.sleep(.5)
-            sv.cmd({'do':'picture','path':str(args.screenshots/'after-inline.png')})
-            pip(tab,'enter')
-            time.sleep(.5)
-            sv.cmd({'do':'picture','path':str(args.screenshots/'after-native-pip.png'),'page':False})
-            pip(tab,'exit'); wait(lambda: state(tab), lambda x: not x['active'])
-            t.ok('return restores inline presentation without a resize',js(tab,"document.querySelector('video').webkitPresentationMode")=='inline')
-            time.sleep(.2)
-            sv.cmd({'do':'picture','path':str(args.screenshots/'after-return.png'),'page':False})
-            sv.cmd({'do':'ui','sidebar':True})
-            sv.cmd({'do':'resize','width':1200,'height':850,'steps':1})
-            time.sleep(1)
-            sv.cmd({'do':'picture','path':str(args.screenshots/'after-sidebar.png')})
-            sv.cmd({'do':'ui','sidebar':False})
-            sv.cmd({'do':'pages','on':False})
         pip(tab,'enter')
         js(tab, "location.href='index.html?kind=empty'")
         wait(lambda: js(tab,'document.readyState'), lambda x: x == 'complete')
