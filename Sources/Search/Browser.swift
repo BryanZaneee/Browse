@@ -1383,7 +1383,7 @@ final class Browser: NSObject, ObservableObject {
         editingTab = tab.id
     }
 
-    func commitTabEdit(completed: Bool = true) {
+    func commitTabEdit() {
         guard let id = editingTab, let tab = tabs.first(where: { $0.id == id }) else { return }
         if renamingTab {
             let typed = tabDraft.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -1392,9 +1392,8 @@ final class Browser: NSObject, ObservableObject {
             writeSession(now: true)
             return
         }
-        let url = completed && tabPicked != nil
-            ? tabPicked.flatMap { tabOffers.indices.contains($0) ? tabOffers[$0].url : nil }
-            : addressDestination(for: completed ? tabCompleted : tabDraft)
+        let url = tabPicked.flatMap { tabOffers.indices.contains($0) ? tabOffers[$0].url : nil }
+            ?? addressDestination(for: tabCompleted)
         guard let url else {
             // Stay put and say so, rather than quietly throwing the edit away.
             refusals += 1

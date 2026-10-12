@@ -1081,7 +1081,7 @@ struct TabAddressField: NSViewRepresentable {
             }
         }
 
-        /// Clicking anywhere else keeps what was typed, as Return does.
+        /// Blur retains the visible draft without submitting it.
         func controlTextDidEndEditing(_ note: Notification) {
             finishLater(unlessEditing: note.object as? NSTextField)
         }

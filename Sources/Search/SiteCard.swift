@@ -7,8 +7,8 @@ import SwiftUI
 // in the column and in the bar across the top alike — whether the connection
 // is private, and the few things that belong to the page (copy its address,
 // print it, its zoom, whether it may play sound by itself, whether its videos
-// float out). It goes as soon
-// as you type, when the address is left, or when one of its lines is used.
+// float out). It goes as soon as you type, when the address is left, or when
+// one of its lines is used.
 // From #56, whose bar it came with; the bar itself stayed out, since Search
 // has the column or the strip, never a second row over the page.
 
@@ -137,10 +137,7 @@ enum SiteCardPanel {
         let panel = Panel(contentRect: NSRect(origin: .zero, size: size), styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
         if suggestionsShown { panel.identifier = NSUserInterfaceItemIdentifier("tab-address-suggestions") }
         panel.contentView = glass
-        if suggestionsShown {
-            panel.minSize = .zero
-            panel.contentMinSize = .zero
-        }
+        if suggestionsShown { panel.contentMinSize = .zero }
         panel.isOpaque = false
         panel.backgroundColor = .clear
         panel.hasShadow = !suggestionsShown
@@ -150,10 +147,10 @@ enum SiteCardPanel {
         window.addChildWindow(panel, ordered: .above)
         if suggestionsShown { reveal(panel, under: field, animated: !Motion.reduced) }
         host.onResize = { [weak panel, weak field] fitted in
-            guard let panel, let field, fitted.width > 0, fitted.height > 0,
-                  panel.frame.size != fitted else { return }
-            let width = panel.identifier?.rawValue == "tab-address-suggestions" ? suggestionSurface?.bounds.width ?? fitted.width : fitted.width
-            panel.setContentSize(NSSize(width: width, height: fitted.height))
+            guard let panel, panel === Self.panel, let field, fitted.width > 0, fitted.height > 0 else { return }
+            let size = NSSize(width: suggestionSurface?.bounds.width ?? fitted.width, height: fitted.height)
+            guard panel.frame.size != size else { return }
+            panel.setContentSize(size)
             position(panel, under: field)
         }
         self.panel = panel
@@ -219,11 +216,10 @@ enum SiteCardPanel {
         fade.duration = 0.14
         fade.timingFunction = CAMediaTimingFunction(name: .easeOut)
         CATransaction.begin()
-        CATransaction.setCompletionBlock { [weak layer, weak panel] in
+        CATransaction.setCompletionBlock { [weak layer] in
             MainActor.assumeIsolated {
                 guard layer?.mask === mask else { return }
                 layer?.mask = nil
-                panel?.invalidateShadow()
             }
         }
         mask.add(unfold, forKey: "suggestions-unfold")
