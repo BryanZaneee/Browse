@@ -697,9 +697,9 @@ struct ContentView: View {
     /// WebAuthn refuses to run on a document that isn't focused, and so do a
     /// number of paste and shortcut handlers pages install for themselves.
     private func handBack() {
-        guard !browser.fieldShowing, browser.editingTab == nil else { return }
+        guard !browser.fieldShowing, !browser.tabAddressFocused else { return }
         DispatchQueue.main.async {
-            guard !browser.fieldShowing, browser.editingTab == nil else { return }
+            guard !browser.fieldShowing, !browser.tabAddressFocused else { return }
             guard let web = browser.active?.web, let window = web.window else { return }
             if let responder = window.firstResponder as? NSView,
                responder === web || responder.isDescendant(of: web) { return }
@@ -1074,7 +1074,7 @@ struct ContentView: View {
             !browser.bookmarking && !browser.welcoming && !browser.managing &&
             !browser.reviewing && !browser.bookmarksOpen &&
             !browser.veiling && !browser.summoning && !browser.makingSpace &&
-            browser.peekTab == nil && browser.editingTab == nil &&
+            browser.peekTab == nil && !browser.tabAddressFocused &&
             browser.asking == nil && browser.offering == nil && browser.suggesting == nil
     }
 
@@ -1129,7 +1129,7 @@ struct ContentView: View {
         // Escape puts the page back. On a blank tab there is no page to put
         // back, so it belongs to whatever else wants it.
         if event.keyCode == 53 {
-            if browser.editingTab != nil {
+            if browser.tabAddressFocused {
                 if let editor = event.window?.firstResponder as? NSTextView, editor.hasMarkedText() { return false }
                 if !browser.tabOffers.isEmpty || browser.tabEnding != nil { browser.dismissTabSuggestions() }
                 else { browser.cancelTabEdit() }
@@ -1233,7 +1233,7 @@ struct ContentView: View {
                 browser.step(flags.contains(.shift) ? -1 : 1)
                 return true
             }
-            if browser.editingTab != nil { return false }
+            if browser.tabAddressFocused { return false }
             // "red" then Tab: Reddit, in the field (SiteSearch.swift).
             if browser.fieldShowing, !flags.contains(.shift), browser.lockSiteOffer() { return true }
             if browser.fieldShowing, !browser.offers.isEmpty {
@@ -1295,7 +1295,7 @@ struct ContentView: View {
         // page, the peek, or another box (Settings, History's search) is
         // theirs as before.
         if event.keyCode == 36 || event.keyCode == 76, browser.fieldShowing,
-           browser.editingTab == nil, let window, event.window === window,
+           !browser.tabAddressFocused, let window, event.window === window,
            ContentView.inAddressField(window) {
             browser.submit(aside: true, front: shifted)
             return true

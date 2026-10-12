@@ -2559,6 +2559,10 @@ final class Bench {
                     "selection": [selected.location, selected.length], "offers": browser.tabOffers.map(\.key),
                     "picked": browser.tabPicked ?? -1, "editing": browser.editingTab?.uuidString ?? "",
                     "native": editing != nil, "panel": SiteCardPanel.suggestionsShown, "typingMS": typingMS,
+                    "parked": browser.tabEditParked, "panelShadow": popup?.hasShadow ?? false,
+                    "surfaceFrame": current.flatMap { field in TabAddressSurface.find(for: browser, field: field).flatMap { surface in
+                        surface.window.map { rect($0.convertToScreen(surface.convert(surface.bounds, to: nil))) }
+                    } } ?? [],
                     "panelFrame": popup.map { rect($0.frame) } ?? [], "panelID": popup?.windowNumber ?? -1,
                     "screenFrame": window?.screen.map { rect($0.visibleFrame) } ?? [],
                     "anchorFrame": current.flatMap { field in field.window.map { rect($0.convertToScreen(field.convert(field.bounds, to: nil))) } } ?? [],

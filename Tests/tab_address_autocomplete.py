@@ -19,6 +19,7 @@ sv.use("tab-address-tests")
 def field(action="state", **values):
     state = sv.cmd({"do": "tabfield", "action": action, **values})
     assert not state.get("onScreen"), state["onScreen"]
+    assert "error" not in state, state
     return state
 
 
@@ -49,6 +50,7 @@ def main():
                    for n in range(10000)]
         Path(sv.SUPPORT, "history.json").write_text(json.dumps(history))
         sv.launch()
+        sv.cmd({"do": "windows", "action": "frame", "n": 1, "frame": [100, 200, 1100, 700]})
         first = sv.page("start")
         for suffix in ["alpha", "beta"]:
             field("seed", url=f"{sv.BASE}/completion-{suffix}", title=suffix)
@@ -74,8 +76,9 @@ def main():
             px, py, pw, ph = state["panelFrame"]
             ax, ay, aw, ah = state["anchorFrame"]
             t.ok(f"{layout}: popup does not cover its field", py + ph <= ay or py >= ay + ah, state)
-            gap = ay - py - ph if py < ay else py - ay - ah
-            t.ok(f"{layout}: suggestions stay attached to the field", abs(gap - 3) < 1, state)
+            tx, ty, tw, th = state["surfaceFrame"]
+            gap = ty - py - ph if py < ty else py - ty - th
+            t.ok(f"{layout}: results extend the tab surface", abs(gap) <= 1 and abs(px - tx) <= 1 and abs(pw - tw) <= 1 and not state["panelShadow"], state)
             state = key("backspace")
             t.ok(f"{layout}: popup reused while typing", state["panelID"] == panel_id, state)
             t.ok(f"{layout}: deleting suffix leaves typed text", state["field"] == prefix and state["selection"] == [len(prefix), 0], state)
@@ -109,10 +112,14 @@ def main():
             loaded(first)
             t.ok(f"{layout}: mouse row navigates", sv.url(sv.sp("state"), first).removeprefix("http://") == expected)
         field("begin", id=first)
-        field("type", text=prefix, replace=True)
-        field("blur")
-        loaded(first)
-        t.ok("blur keeps raw draft, not unseen completion", sv.url(sv.sp("state"), first) == "http://" + prefix)
+        typed = field("type", text=prefix, replace=True)
+        before_url = sv.url(sv.sp("state"), first)
+        state = field("blur")
+        t.ok("blur keeps completed draft without navigating", sv.url(sv.sp("state"), first) == before_url and state["field"] == typed["field"] and state["parked"] and not state["panel"] and not state["native"], state)
+        field("begin", id=first)
+        field("type", text="words not submitted", replace=True)
+        state = field("blur")
+        t.ok("blur keeps raw words without searching", sv.url(sv.sp("state"), first) == before_url and state["field"] == "words not submitted" and state["parked"], state)
         # Both appearances and a narrow window at the screen's lower-right edge.
         field("begin", id=first)
         state = field("type", text=prefix, replace=True)

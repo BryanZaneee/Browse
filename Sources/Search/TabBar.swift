@@ -701,7 +701,9 @@ private struct TabPill: View {
 
     @ViewBuilder
     private var ground: some View {
-        if live {
+        if editing {
+            TabAddressSurface(browser: browser)
+        } else if live {
             // The grey fills from the left as you read down the page. It is
             // the one thing in the window that says how far in you are, and
             // it says it without adding anything to the window.
@@ -841,13 +843,76 @@ struct Carried: ViewModifier {
     }
 }
 
+/// The editor and its results share the tab's fill and one outer silhouette.
+struct TabAddressSurface: NSViewRepresentable {
+    let browser: Browser
+
+    func makeNSView(context: Context) -> Surface { Surface(browser: browser) }
+    func updateNSView(_ view: Surface, context: Context) {}
+
+    final class Surface: NSView {
+        weak var browser: Browser?
+
+        init(browser: Browser) {
+            self.browser = browser
+            super.init(frame: .zero)
+            wantsLayer = true
+            layer?.cornerRadius = 9
+            layer?.cornerCurve = .continuous
+            viewDidChangeEffectiveAppearance()
+        }
+
+        @available(*, unavailable)
+        required init?(coder: NSCoder) { fatalError() }
+        override func hitTest(_ point: NSPoint) -> NSView? { nil }
+        override func viewDidChangeEffectiveAppearance() {
+            super.viewDidChangeEffectiveAppearance()
+            effectiveAppearance.performAsCurrentDrawingAppearance {
+                layer?.backgroundColor = Palette.NS.wash.cgColor
+            }
+        }
+
+        func attach(above: Bool?) {
+            layer?.maskedCorners = above.map {
+                $0 ? [.layerMinXMinYCorner, .layerMaxXMinYCorner]
+                   : [.layerMinXMaxYCorner, .layerMaxXMaxYCorner]
+            } ?? [.layerMinXMinYCorner, .layerMaxXMinYCorner, .layerMinXMaxYCorner, .layerMaxXMaxYCorner]
+        }
+    }
+
+    static func find(for browser: Browser, field: NSView) -> Surface? {
+        guard let root = field.window?.contentView else { return nil }
+        func find(_ view: NSView) -> Surface? {
+            if let surface = view as? Surface, surface.browser === browser,
+               surface.bounds.contains(surface.convert(NSPoint(x: field.bounds.midX, y: field.bounds.midY), from: field)) {
+                return surface
+            }
+            return view.subviews.lazy.compactMap(find).first
+        }
+        return find(root)
+    }
+}
+
 struct TabAddressField: NSViewRepresentable {
     @ObservedObject var browser: Browser
+
+    private final class Field: NSTextField {
+        weak var browser: Browser?
+        override func becomeFirstResponder() -> Bool {
+            let accepted = super.becomeFirstResponder()
+            if accepted, let browser, browser.tabEditParked,
+               let tab = browser.tabs.first(where: { $0.id == browser.editingTab }) {
+                browser.beginTabEdit(tab)
+            }
+            return accepted
+        }
+    }
 
     func makeCoordinator() -> Coordinator { Coordinator(browser: browser) }
 
     func makeNSView(context: Context) -> NSTextField {
-        let field = NSTextField()
+        let field = Field()
+        field.browser = browser
         field.delegate = context.coordinator
         field.isBordered = false
         field.drawsBackground = false
@@ -907,13 +972,13 @@ struct TabAddressField: NSViewRepresentable {
         }
 
         func claim(_ field: NSTextField, tries: Int = 0) {
-            guard !claimed, !focusPending else { return }
+            guard !claimed, !focusPending, !browser.tabEditParked else { return }
             focusPending = true
             let revision = browser.tabEditRevision
             DispatchQueue.main.asyncAfter(deadline: .now() + (tries == 0 ? 0 : 0.03)) { [weak self, weak field] in
                 guard let self, let field else { return }
                 self.focusPending = false
-                guard !self.claimed, self.watcher != nil, self.browser.editingTab != nil,
+                guard !self.claimed, self.watcher != nil, self.browser.tabAddressFocused,
                       self.browser.tabEditRevision == revision else { return }
                 // SwiftUI can ask for focus before the sidebar field joins its window.
                 if let editor = field.window?.firstResponder as? NSTextView,
@@ -1070,7 +1135,8 @@ struct TabAddressField: NSViewRepresentable {
                     MainActor.assumeIsolated {
                         guard let self, let field, let window = note.object as? NSWindow,
                               window === field.window else { return }
-                        self.browser.cancelTabEdit()
+                        if name == NSWindow.willCloseNotification { self.browser.cancelTabEdit() }
+                        else { self.browser.finishTabEdit() }
                     }
                 })
             }
@@ -1078,6 +1144,7 @@ struct TabAddressField: NSViewRepresentable {
                 guard let self, let field, field.currentEditor() != nil, event.window === field.window,
                       !field.bounds.contains(field.convert(event.locationInWindow, from: nil))
                 else { return event }
+                field.window?.makeFirstResponder(nil)
                 self.finishLater()
                 return event
             }

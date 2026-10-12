@@ -790,7 +790,9 @@ private struct SideRow: View {
 
     @ViewBuilder
     private var ground: some View {
-        if live {
+        if editing {
+            TabAddressSurface(browser: browser)
+        } else if live {
             ZStack(alignment: .leading) {
                 Rectangle().fill(Palette.wash)
                 if prefs.showsReading {

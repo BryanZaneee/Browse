@@ -49,10 +49,12 @@ struct SplitTabItem: View {
             }
         }
         .overlay {
-            RoundedRectangle(cornerRadius: 9, style: .continuous)
-                .strokeBorder(Palette.hairline, lineWidth: 1)
-                .padding(.vertical, stacked ? 0 : 6)
-                .allowsHitTesting(false)
+            if browser.editingTab != left.id && browser.editingTab != right.id {
+                RoundedRectangle(cornerRadius: 9, style: .continuous)
+                    .strokeBorder(Palette.hairline, lineWidth: 1)
+                    .padding(.vertical, stacked ? 0 : 6)
+                    .allowsHitTesting(false)
+            }
         }
         .contentShape(RoundedRectangle(cornerRadius: 9, style: .continuous))
         .accessibilityElement(children: .contain)
@@ -163,7 +165,9 @@ private struct SplitTabHalf: View {
 
     @ViewBuilder
     private var ground: some View {
-        if focused {
+        if editing {
+            TabAddressSurface(browser: browser)
+        } else if focused {
             ZStack(alignment: .leading) {
                 Rectangle().fill(Palette.wash)
                 if prefs.showsReading, !narrow {

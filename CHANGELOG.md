@@ -33,6 +33,8 @@ in [ROADMAP.md](ROADMAP.md).
 
 ### Fixed
 
+- Tab address results expand the tab’s own surface, sharing its width, fill and outer corners. Clicking away keeps the completed address or typed draft without navigating; clicking back resumes editing.
+
 - Tab address suggestions unfold from the field with a short reveal, using an immediate transition when Reduce Motion is enabled.
 
 - Editing a tab address leaves Site Information closed until requested from the tab menu, and address suggestions keep their icons aligned on the left.

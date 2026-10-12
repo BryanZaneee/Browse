@@ -151,6 +151,7 @@ struct Omnibox: View {
         /// Where the arrow keys have walked to. The pointer gets its own,
         /// quieter mark, and changes nothing but the look of the row.
         let picked: Bool
+        var selectionBackground = Palette.wash
 
         @State private var hovering = false
 
@@ -206,7 +207,7 @@ struct Omnibox: View {
             .background {
                 if picked {
                     RoundedRectangle(cornerRadius: 9, style: .continuous)
-                        .fill(Palette.wash)
+                        .fill(selectionBackground)
                 } else if hovering {
                     RoundedRectangle(cornerRadius: 9, style: .continuous)
                         .fill(Palette.hover)

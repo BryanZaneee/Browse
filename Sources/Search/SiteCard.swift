@@ -23,6 +23,7 @@ enum SiteCardPanel {
     static var isShown: Bool { panel != nil && !suggestionsShown }
     private(set) static var suggestionsShown = false
     private static weak var suggestionBrowser: Browser?
+    private static weak var suggestionSurface: TabAddressSurface.Surface?
 
     static func hideSuggestions(for browser: Browser) {
         if suggestionsShown, suggestionBrowser === browser { hide() }
@@ -31,17 +32,21 @@ enum SiteCardPanel {
     static func suggest(_ browser: Browser, under field: NSTextField) {
         guard let id = browser.editingTab, !browser.renamingTab, !browser.tabOffers.isEmpty,
               field.currentEditor() != nil, let window = field.window else { return }
-        let width = min(max(field.bounds.width + 24, 280), min(500, (window.screen?.visibleFrame.width ?? 516) - 16))
+        guard let surface = TabAddressSurface.find(for: browser, field: field) else { return }
+        let width = surface.bounds.width
         if suggestionsShown, suggestionBrowser === browser, let panel, panel.parent === window {
             if let host = panel.contentView?.subviews.first as? FirstClick, host.frame.width != width {
                 host.rootView = AnyView(TabSuggestions(browser: browser, tab: id).frame(width: width))
             }
+            if suggestionSurface !== surface { suggestionSurface?.attach(above: nil) }
+            suggestionSurface = surface
             position(panel, under: field)
             return
         }
         hide()
         suggestionsShown = true
         suggestionBrowser = browser
+        suggestionSurface = surface
         present(AnyView(TabSuggestions(browser: browser, tab: id).frame(width: width)), under: field)
     }
 
@@ -107,18 +112,24 @@ enum SiteCardPanel {
         guard let window = field.window else { return }
         let host = FirstClick(rootView: content)
         let size = host.fittingSize
-        let glass = NSVisualEffectView(frame: NSRect(origin: .zero, size: size))
-        glass.material = .menu
-        glass.state = .active
+        let glass: NSView
+        if suggestionsShown {
+            glass = NSView(frame: NSRect(origin: .zero, size: size))
+        } else {
+            let effect = NSVisualEffectView(frame: NSRect(origin: .zero, size: size))
+            effect.material = .menu
+            effect.state = .active
+            glass = effect
+        }
         glass.wantsLayer = true
-        glass.layer?.cornerRadius = MenuMetrics.corner
+        glass.layer?.cornerRadius = suggestionsShown ? 9 : MenuMetrics.corner
         glass.layer?.cornerCurve = .continuous
         glass.layer?.masksToBounds = true
-        glass.layer?.borderWidth = 0.5
+        glass.layer?.borderWidth = suggestionsShown ? 0 : 0.5
         glass.layer?.borderColor = MenuMetrics.edge.cgColor
         // Before macOS 26 the material behind the window ignores the layer's
         // corners, and showed square ones; a mask rounds it there too.
-        if #unavailable(macOS 26) { glass.maskImage = Self.rounded(MenuMetrics.corner) }
+        if #unavailable(macOS 26), let effect = glass as? NSVisualEffectView { effect.maskImage = Self.rounded(MenuMetrics.corner) }
         host.frame = glass.bounds
         host.autoresizingMask = [.width, .height]
         glass.addSubview(host)
@@ -126,9 +137,13 @@ enum SiteCardPanel {
         let panel = Panel(contentRect: NSRect(origin: .zero, size: size), styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
         if suggestionsShown { panel.identifier = NSUserInterfaceItemIdentifier("tab-address-suggestions") }
         panel.contentView = glass
+        if suggestionsShown {
+            panel.minSize = .zero
+            panel.contentMinSize = .zero
+        }
         panel.isOpaque = false
         panel.backgroundColor = .clear
-        panel.hasShadow = true
+        panel.hasShadow = !suggestionsShown
         panel.becomesKeyOnlyIfNeeded = true
         panel.hidesOnDeactivate = true
         position(panel, under: field)
@@ -137,7 +152,8 @@ enum SiteCardPanel {
         host.onResize = { [weak panel, weak field] fitted in
             guard let panel, let field, fitted.width > 0, fitted.height > 0,
                   panel.frame.size != fitted else { return }
-            panel.setContentSize(fitted)
+            let width = panel.identifier?.rawValue == "tab-address-suggestions" ? suggestionSurface?.bounds.width ?? fitted.width : fitted.width
+            panel.setContentSize(NSSize(width: width, height: fitted.height))
             position(panel, under: field)
         }
         self.panel = panel
@@ -151,13 +167,25 @@ enum SiteCardPanel {
 
     private static func position(_ panel: NSPanel, under field: NSView) {
         guard let window = field.window else { return }
-        let spot = window.convertToScreen(field.convert(field.bounds, to: nil))
+        let surface = panel.identifier?.rawValue == "tab-address-suggestions" ? suggestionSurface : nil
+        let anchor = surface ?? field
+        let spot = window.convertToScreen(anchor.convert(anchor.bounds, to: nil))
+        if let surface, panel.frame.width != surface.bounds.width {
+            panel.setContentSize(NSSize(width: surface.bounds.width, height: panel.frame.height))
+        }
         let size = panel.frame.size
-        let gap: CGFloat = panel.identifier?.rawValue == "tab-address-suggestions" ? 3 : 12
-        var origin = NSPoint(x: spot.minX - 12, y: spot.minY - gap - size.height)
+        let gap: CGFloat = surface == nil ? 12 : 0
+        var origin = NSPoint(x: spot.minX - (surface == nil ? 12 : 0), y: spot.minY - gap - size.height)
         if let screen = window.screen?.visibleFrame {
             origin.x = max(screen.minX + 8, min(origin.x, screen.maxX - size.width - 8))
             if origin.y < screen.minY + 8 { origin.y = min(spot.maxY + gap, screen.maxY - size.height - 8) }
+        }
+        if let surface {
+            let above = origin.y >= spot.maxY
+            surface.attach(above: above)
+            panel.contentView?.layer?.maskedCorners = above
+                ? [.layerMinXMaxYCorner, .layerMaxXMaxYCorner]
+                : [.layerMinXMinYCorner, .layerMaxXMinYCorner]
         }
         panel.setFrameOrigin(origin)
     }
@@ -219,6 +247,8 @@ enum SiteCardPanel {
     static func hide() {
         suggestionsShown = false
         suggestionBrowser = nil
+        suggestionSurface?.attach(above: nil)
+        suggestionSurface = nil
         if let resign { NotificationCenter.default.removeObserver(resign) }
         resign = nil
         guard let panel else { return }
@@ -688,7 +718,7 @@ private struct TabSuggestions: View {
         VStack(spacing: 0) {
             ForEach(Array(browser.tabOffers.enumerated()), id: \.element.id) { index, offer in
                 Button { browser.takeTabSuggestion(offer, for: tab) } label: {
-                    Omnibox.Row(offer: offer, picked: browser.tabPicked == index)
+                    Omnibox.Row(offer: offer, picked: browser.tabPicked == index, selectionBackground: Palette.ground)
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel(offer.key + (offer.title.isEmpty ? "" : ", " + offer.title))
@@ -696,7 +726,7 @@ private struct TabSuggestions: View {
             }
         }
         .padding(6)
-        .background(Palette.ground)
+        .background(Palette.wash)
         .accessibilityElement(children: .contain)
         .accessibilityLabel("Address suggestions")
     }

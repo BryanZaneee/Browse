@@ -1298,6 +1298,8 @@ final class Browser: NSObject, ObservableObject {
     /// form, ready to be changed.
     @Published private(set) var editingTab: Tab.ID?
     @Published var tabDraft = ""
+    @Published private(set) var tabEditParked = false
+    var tabAddressFocused: Bool { editingTab != nil && !tabEditParked }
     @Published private(set) var tabOffers: [Suggestion] = []
     @Published private(set) var tabEnding: String?
     @Published private(set) var tabPicked: Int?
@@ -1310,6 +1312,7 @@ final class Browser: NSObject, ObservableObject {
     }
 
     func changeTabDraft(_ text: String, completing: Bool = true, suggesting: Bool = true) {
+        tabEditParked = false
         tabDraft = text
         tabPicked = nil
         guard editingTab != nil, !renamingTab, suggesting else { dismissTabSuggestions(); return }
@@ -1351,6 +1354,14 @@ final class Browser: NSObject, ObservableObject {
     var tabInformationWatch: AnyCancellable?
 
     func beginTabEdit(_ tab: Tab, siteInformation: Bool = false) {
+        if editingTab == tab.id, !renamingTab, !siteInformation {
+            tabDraft = tabCompleted
+            showingTabInformation = false
+            dismissTabSuggestions()
+            tabEditRevision += 1
+            tabEditParked = false
+            return
+        }
         cancelTabEdit()
         guard let url = tab.address else {
             edit()
@@ -1398,28 +1409,25 @@ final class Browser: NSObject, ObservableObject {
         tabNavigation = nil
         dismissTabSuggestions()
         editingTab = nil
+        tabEditParked = false
         showingTabInformation = false
         renamingTab = false
         tabDraft = ""
     }
 
-    /// A click somewhere else — the page, the column below, the rest of the
-    /// strip — while a tab's address or name is being edited in the tab: what
-    /// was typed is kept, as Return keeps it. An address left as it was loads
-    /// nothing again, and a field left empty is let go.
+    /// Leaving the field keeps its visible draft, but only an explicit submit
+    /// or suggestion click may navigate. Renaming still commits on blur.
     func finishTabEdit() {
-        guard let id = editingTab, let tab = tabs.first(where: { $0.id == id }) else { return }
+        guard editingTab != nil, !tabEditParked else { return }
         if renamingTab {
             commitTabEdit()
             return
         }
-        let draft = tabDraft.trimmingCharacters(in: .whitespacesAndNewlines)
-        if draft.isEmpty || tab.address.map({ Address.editable($0) == draft }) == true
-            || addressDestination(for: draft) == nil {
-            cancelTabEdit()
-            return
-        }
-        commitTabEdit(completed: false)
+        tabDraft = tabCompleted
+        showingTabInformation = false
+        dismissTabSuggestions()
+        tabEditRevision += 1
+        tabEditParked = true
     }
 
     // MARK: - saying so

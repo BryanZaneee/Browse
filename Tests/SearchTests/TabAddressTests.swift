@@ -16,7 +16,7 @@ final class TabAddressTests: XCTestCase {
         let tab = browser.open(URL(string: "about:blank")!, foreground: true)
         spin()
         browser.beginTabEdit(tab)
-        let host = NSHostingView(rootView: TabAddressField(browser: browser).frame(width: 400, height: 24))
+        let host = NSHostingView(rootView: TabAddressField(browser: browser).frame(width: 400, height: 24).background(TabAddressSurface(browser: browser)))
         let window = NSWindow(contentRect: NSRect(x: -20000, y: -20000, width: 400, height: 24),
                               styleMask: .borderless, backing: .buffered, defer: false)
         let container = NSView(frame: window.contentLayoutRect)
@@ -105,6 +105,41 @@ final class TabAddressTests: XCTestCase {
             XCTAssertNil(panel.parent)
             XCTAssertNil(layer.mask)
             XCTAssertFalse(SiteCardPanel.suggestionsShown)
+        }
+    }
+
+    func testBlurKeepsCompletionAndPlainDraftWithoutNavigating() throws {
+        try withField { browser, field, editor in
+            let window = try XCTUnwrap(field.window)
+            let tab = try XCTUnwrap(browser.active)
+            let address = tab.address
+            editor.selectAll(nil)
+            editor.insertText("yout", replacementRange: editor.selectedRange())
+            spin()
+            window.makeFirstResponder(nil)
+            spin()
+            XCTAssertEqual(tab.address, address)
+            XCTAssertEqual(field.stringValue, "youtube.com")
+            XCTAssertTrue(browser.tabEditParked)
+            XCTAssertFalse(browser.tabAddressFocused)
+            XCTAssertNil(field.currentEditor())
+            XCTAssertFalse(SiteCardPanel.suggestionsShown)
+            browser.beginTabEdit(tab)
+            spin()
+            XCTAssertEqual(field.stringValue, "youtube.com")
+            let resumed = try XCTUnwrap(field.currentEditor() as? NSTextView)
+            resumed.selectAll(nil)
+            resumed.insertText("words not submitted", replacementRange: resumed.selectedRange())
+            spin()
+            window.makeFirstResponder(nil)
+            spin()
+            XCTAssertEqual(field.stringValue, "words not submitted")
+            XCTAssertEqual(tab.address, address)
+            XCTAssertTrue(browser.tabOffers.isEmpty)
+            window.makeFirstResponder(field)
+            spin()
+            XCTAssertFalse(browser.tabEditParked)
+            XCTAssertEqual(field.stringValue, "words not submitted")
         }
     }
 
@@ -306,7 +341,7 @@ final class TabAddressTests: XCTestCase {
             browser.changeTabDraft("yout")
             NotificationCenter.default.post(name: NSWindow.didResignKeyNotification, object: field.window)
             spin()
-            XCTAssertNil(browser.editingTab)
+            XCTAssertTrue(browser.tabEditParked)
             XCTAssertTrue(browser.tabOffers.isEmpty)
         }
     }
