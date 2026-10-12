@@ -2494,33 +2494,31 @@ final class Bench {
                 }
                 editor.setSelectedRange(NSRange(location: selection[0], length: selection[1]))
             }
+            func sendKey(_ text: String, code: UInt16, to editor: NSTextView) -> Bool {
+                guard let event = NSEvent.keyEvent(with: .keyDown, location: .zero, modifierFlags: [],
+                    timestamp: ProcessInfo.processInfo.systemUptime, windowNumber: window?.windowNumber ?? 0,
+                    context: nil, characters: text, charactersIgnoringModifiers: text,
+                    isARepeat: false, keyCode: code) else { return false }
+                if let hook = ContentView.keyHooks[ObjectIdentifier(browser)], hook(event) == nil { return true }
+                editor.keyDown(with: event)
+                return true
+            }
             var typingMS: [Double] = []
             switch action {
             case "type":
                 guard let editor, let text = request["text"] as? String else { answer(["error": "no native editor or text"]); return }
                 if request["replace"] as? Bool == true { editor.selectAll(nil) }
                 for character in text {
-                    guard let event = NSEvent.keyEvent(with: .keyDown, location: .zero, modifierFlags: [],
-                        timestamp: ProcessInfo.processInfo.systemUptime, windowNumber: window?.windowNumber ?? 0,
-                        context: nil, characters: String(character), charactersIgnoringModifiers: String(character),
-                        isARepeat: false, keyCode: Bench.keyCode(for: character)) else { continue }
                     let start = CACurrentMediaTime()
-                    if let hook = ContentView.keyHooks[ObjectIdentifier(browser)] {
-                        if hook(event) != nil { editor.keyDown(with: event) }
-                    } else { editor.keyDown(with: event) }
+                    guard sendKey(String(character), code: Bench.keyCode(for: character), to: editor) else { continue }
                     typingMS.append((CACurrentMediaTime() - start) * 1000)
                 }
             case "key":
                 let keys: [String: (UInt16, String)] = ["down": (125, "\u{f701}"), "up": (126, "\u{f700}"),
                     "enter": (36, "\r"), "tab": (48, "\t"), "escape": (53, "\u{1b}"), "backspace": (51, "\u{7f}")]
                 guard let editor, let name = request["key"] as? String, let key = keys[name],
-                      let event = NSEvent.keyEvent(with: .keyDown, location: .zero, modifierFlags: [],
-                        timestamp: ProcessInfo.processInfo.systemUptime, windowNumber: window?.windowNumber ?? 0,
-                        context: nil, characters: key.1, charactersIgnoringModifiers: key.1, isARepeat: false, keyCode: key.0)
+                      sendKey(key.1, code: key.0, to: editor)
                 else { answer(["error": "no native editor or unknown key"]); return }
-                if let hook = ContentView.keyHooks[ObjectIdentifier(browser)] {
-                    if hook(event) != nil { editor.keyDown(with: event) }
-                } else { editor.keyDown(with: event) }
             case "blur": window?.makeFirstResponder(nil)
             case "click":
                 guard let panel, let root = panel.contentView, let row = request["row"] as? Int,

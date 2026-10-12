@@ -1326,6 +1326,11 @@ final class Browser: NSObject, ObservableObject {
         tabPicked = nil
     }
 
+    func escapeTabEdit() {
+        if !tabOffers.isEmpty || tabEnding != nil { dismissTabSuggestions() }
+        else { cancelTabEdit() }
+    }
+
     func walkTabSuggestions(_ step: Int) {
         guard !tabOffers.isEmpty else { return }
         let next = (tabPicked ?? (step > 0 ? -1 : tabOffers.count)) + step

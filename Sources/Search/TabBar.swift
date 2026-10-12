@@ -880,13 +880,15 @@ struct TabAddressSurface: NSViewRepresentable {
         }
     }
 
-    static func find(for browser: Browser, field: NSView) -> Surface? {
+    static func find(for browser: Browser, field: NSView, reusing cached: Surface? = nil) -> Surface? {
         guard let root = field.window?.contentView else { return nil }
+        func matches(_ surface: Surface) -> Bool {
+            surface.browser === browser && surface.window === field.window &&
+                surface.bounds.contains(surface.convert(NSPoint(x: field.bounds.midX, y: field.bounds.midY), from: field))
+        }
+        if let cached, matches(cached) { return cached }
         func find(_ view: NSView) -> Surface? {
-            if let surface = view as? Surface, surface.browser === browser,
-               surface.bounds.contains(surface.convert(NSPoint(x: field.bounds.midX, y: field.bounds.midY), from: field)) {
-                return surface
-            }
+            if let surface = view as? Surface, matches(surface) { return surface }
             return view.subviews.lazy.compactMap(find).first
         }
         return find(root)
@@ -1071,10 +1073,8 @@ struct TabAddressField: NSViewRepresentable {
                 return true
             case #selector(NSResponder.cancelOperation(_:)):
                 guard !textView.hasMarkedText() else { return false }
-                if !browser.tabOffers.isEmpty || browser.tabEnding != nil {
-                    browser.dismissTabSuggestions()
-                    if let field = control as? NSTextField { sync(field) }
-                } else { browser.cancelTabEdit() }
+                browser.escapeTabEdit()
+                if let field = control as? NSTextField { sync(field) }
                 return true
             default:
                 return false

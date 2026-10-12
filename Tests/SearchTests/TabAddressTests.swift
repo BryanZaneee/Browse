@@ -45,6 +45,39 @@ final class TabAddressTests: XCTestCase {
         RunLoop.main.run(until: Date(timeIntervalSinceNow: 0.08))
     }
 
+    func testEscapeBeforeTheNativeEditorClaimsFocus() throws {
+        let browser = Browser(record: WindowRecord())
+        let tab = browser.open(URL(string: "about:blank")!, foreground: true)
+        browser.beginTabEdit(tab)
+        browser.changeTabDraft("yout")
+        browser.escapeTabEdit()
+        XCTAssertTrue(browser.tabOffers.isEmpty)
+        XCTAssertNil(browser.tabEnding)
+        XCTAssertEqual(browser.tabDraft, "yout")
+        XCTAssertEqual(browser.editingTab, tab.id)
+        browser.escapeTabEdit()
+        XCTAssertNil(browser.editingTab)
+    }
+
+    func testCachedSurfaceIsRediscoveredAfterMovingOrDetaching() throws {
+        try withField { browser, field, _ in
+            let surface = try XCTUnwrap(TabAddressSurface.find(for: browser, field: field))
+            let parent = try XCTUnwrap(surface.superview)
+            XCTAssertTrue(TabAddressSurface.find(for: browser, field: field, reusing: surface) === surface)
+            let replacement = TabAddressSurface.Surface(browser: browser)
+            replacement.frame = surface.frame
+            parent.addSubview(replacement)
+            defer { replacement.removeFromSuperview() }
+            let frame = surface.frame
+            surface.setFrameOrigin(NSPoint(x: frame.minX + 10000, y: frame.minY))
+            XCTAssertTrue(TabAddressSurface.find(for: browser, field: field, reusing: surface) === replacement)
+            surface.frame = frame
+            surface.removeFromSuperview()
+            defer { parent.addSubview(surface) }
+            XCTAssertTrue(TabAddressSurface.find(for: browser, field: field, reusing: surface) === replacement)
+        }
+    }
+
     func testSiteInformationOnlyOpensWhenRequested() throws {
         try withField { browser, field, _ in
             XCTAssertNotNil(field.currentEditor())

@@ -1130,9 +1130,11 @@ struct ContentView: View {
         // back, so it belongs to whatever else wants it.
         if event.keyCode == 53 {
             if browser.tabAddressFocused {
-                if let editor = event.window?.firstResponder as? NSTextView, editor.hasMarkedText() { return false }
-                if !browser.tabOffers.isEmpty || browser.tabEnding != nil { browser.dismissTabSuggestions() }
-                else { browser.cancelTabEdit() }
+                if let editor = event.window?.firstResponder as? NSTextView,
+                   let field = editor.delegate as? NSTextField,
+                   let coordinator = field.delegate as? TabAddressField.Coordinator,
+                   coordinator.browser === browser { return false }
+                browser.escapeTabEdit()
                 return true
             }
             if browser.peekTab != nil {

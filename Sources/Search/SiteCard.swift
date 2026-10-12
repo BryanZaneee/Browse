@@ -32,7 +32,7 @@ enum SiteCardPanel {
     static func suggest(_ browser: Browser, under field: NSTextField) {
         guard let id = browser.editingTab, !browser.renamingTab, !browser.tabOffers.isEmpty,
               field.currentEditor() != nil, let window = field.window else { return }
-        guard let surface = TabAddressSurface.find(for: browser, field: field) else { return }
+        guard let surface = TabAddressSurface.find(for: browser, field: field, reusing: suggestionSurface) else { return }
         let width = surface.bounds.width
         if suggestionsShown, suggestionBrowser === browser, let panel, panel.parent === window {
             if let host = panel.contentView?.subviews.first as? FirstClick, host.frame.width != width {
