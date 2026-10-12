@@ -2536,8 +2536,11 @@ final class Bench {
                     if type == .leftMouseDown { target.mouseDown(with: event) } else { target.mouseUp(with: event) }
                 }
             case "picture":
-                guard let path = request["path"] as? String, let view = panel?.contentView,
-                      let picture = view.bitmapImageRepForCachingDisplay(in: view.bounds) else {
+                guard let path = request["path"] as? String, let view = panel?.contentView?.subviews.first else {
+                    answer(["error": "no suggestions to picture"]); return
+                }
+                view.layoutSubtreeIfNeeded()
+                guard let picture = view.bitmapImageRepForCachingDisplay(in: view.bounds) else {
                     answer(["error": "no suggestions to picture"]); return
                 }
                 view.cacheDisplay(in: view.bounds, to: picture)

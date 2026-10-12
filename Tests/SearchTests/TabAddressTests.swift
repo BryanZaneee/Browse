@@ -19,7 +19,10 @@ final class TabAddressTests: XCTestCase {
         let host = NSHostingView(rootView: TabAddressField(browser: browser).frame(width: 400, height: 24))
         let window = NSWindow(contentRect: NSRect(x: -20000, y: -20000, width: 400, height: 24),
                               styleMask: .borderless, backing: .buffered, defer: false)
-        window.contentView = host
+        let container = NSView(frame: window.contentLayoutRect)
+        window.contentView = container
+        host.frame = container.bounds
+        container.addSubview(host)
         host.layoutSubtreeIfNeeded()
         spin()
         func find(_ view: NSView) -> NSTextField? {
