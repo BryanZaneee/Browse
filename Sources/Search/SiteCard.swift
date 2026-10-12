@@ -133,6 +133,7 @@ enum SiteCardPanel {
         panel.hidesOnDeactivate = true
         position(panel, under: field)
         window.addChildWindow(panel, ordered: .above)
+        if suggestionsShown { reveal(panel, under: field, animated: !Motion.reduced) }
         host.onResize = { [weak panel, weak field] fitted in
             guard let panel, let field, fitted.width > 0, fitted.height > 0,
                   panel.frame.size != fitted else { return }
@@ -152,12 +153,54 @@ enum SiteCardPanel {
         guard let window = field.window else { return }
         let spot = window.convertToScreen(field.convert(field.bounds, to: nil))
         let size = panel.frame.size
-        var origin = NSPoint(x: spot.minX - 12, y: spot.minY - 12 - size.height)
+        let gap: CGFloat = panel.identifier?.rawValue == "tab-address-suggestions" ? 3 : 12
+        var origin = NSPoint(x: spot.minX - 12, y: spot.minY - gap - size.height)
         if let screen = window.screen?.visibleFrame {
             origin.x = max(screen.minX + 8, min(origin.x, screen.maxX - size.width - 8))
-            if origin.y < screen.minY + 8 { origin.y = min(spot.maxY + 12, screen.maxY - size.height - 8) }
+            if origin.y < screen.minY + 8 { origin.y = min(spot.maxY + gap, screen.maxY - size.height - 8) }
         }
         panel.setFrameOrigin(origin)
+    }
+
+    /// Uncover the rows from the field's edge without moving the native editor
+    /// or scaling its text. The panel keeps its final hit-testing geometry.
+    static func reveal(_ panel: NSPanel, under field: NSView, animated: Bool) {
+        guard let glass = panel.contentView, let layer = glass.layer else { return }
+        layer.mask = nil
+        layer.removeAnimation(forKey: "suggestions-fade")
+        guard animated, let window = field.window else { return }
+        let spot = window.convertToScreen(field.convert(field.bounds, to: nil))
+        let below = panel.frame.midY < spot.midY
+        let mask = CALayer()
+        mask.backgroundColor = NSColor.black.cgColor
+        mask.bounds = glass.bounds
+        mask.anchorPoint = CGPoint(x: 0.5, y: below ? 1 : 0)
+        mask.position = CGPoint(x: glass.bounds.midX, y: below ? glass.bounds.maxY : glass.bounds.minY)
+        mask.autoresizingMask = [.layerWidthSizable, .layerHeightSizable]
+        layer.mask = mask
+
+        let unfold = CABasicAnimation(keyPath: "transform.scale.y")
+        unfold.fromValue = 0
+        unfold.toValue = 1
+        unfold.duration = 0.30
+        // The same gentle ease-out used for Search's native pane transitions.
+        unfold.timingFunction = CAMediaTimingFunction(controlPoints: 0.22, 1, 0.36, 1)
+        let fade = CABasicAnimation(keyPath: "opacity")
+        fade.fromValue = 0
+        fade.toValue = 1
+        fade.duration = 0.14
+        fade.timingFunction = CAMediaTimingFunction(name: .easeOut)
+        CATransaction.begin()
+        CATransaction.setCompletionBlock { [weak layer, weak panel] in
+            MainActor.assumeIsolated {
+                guard layer?.mask === mask else { return }
+                layer?.mask = nil
+                panel?.invalidateShadow()
+            }
+        }
+        mask.add(unfold, forKey: "suggestions-unfold")
+        layer.add(fade, forKey: "suggestions-fade")
+        CATransaction.commit()
     }
 
     /// A rounded rectangle that stretches to any size, its corners kept.
@@ -179,6 +222,8 @@ enum SiteCardPanel {
         if let resign { NotificationCenter.default.removeObserver(resign) }
         resign = nil
         guard let panel else { return }
+        panel.contentView?.layer?.mask = nil
+        panel.contentView?.layer?.removeAnimation(forKey: "suggestions-fade")
         panel.parent?.removeChildWindow(panel)
         panel.orderOut(nil)
         self.panel = nil

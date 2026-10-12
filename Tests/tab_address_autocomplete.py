@@ -74,6 +74,8 @@ def main():
             px, py, pw, ph = state["panelFrame"]
             ax, ay, aw, ah = state["anchorFrame"]
             t.ok(f"{layout}: popup does not cover its field", py + ph <= ay or py >= ay + ah, state)
+            gap = ay - py - ph if py < ay else py - ay - ah
+            t.ok(f"{layout}: suggestions stay attached to the field", abs(gap - 3) < 1, state)
             state = key("backspace")
             t.ok(f"{layout}: popup reused while typing", state["panelID"] == panel_id, state)
             t.ok(f"{layout}: deleting suffix leaves typed text", state["field"] == prefix and state["selection"] == [len(prefix), 0], state)

@@ -69,6 +69,45 @@ final class TabAddressTests: XCTestCase {
         }
     }
 
+    func testSuggestionRevealKeepsFocusAndRespectsReducedMotion() throws {
+        try withField { browser, field, editor in
+            editor.selectAll(nil)
+            editor.insertText("yout", replacementRange: editor.selectedRange())
+            spin()
+            let panel = try XCTUnwrap(NSApp.windows.first {
+                $0.identifier?.rawValue == "tab-address-suggestions" && $0.parent === field.window
+            } as? NSPanel)
+            let window = try XCTUnwrap(field.window)
+            let spot = window.convertToScreen(field.convert(field.bounds, to: nil))
+            panel.setFrameOrigin(NSPoint(x: spot.minX, y: spot.minY - panel.frame.height - 3))
+            let frame = panel.frame
+            let layer = try XCTUnwrap(panel.contentView?.layer)
+            SiteCardPanel.reveal(panel, under: field, animated: true)
+            let mask = try XCTUnwrap(layer.mask)
+            XCTAssertEqual(mask.anchorPoint.y, 1)
+            XCTAssertNotNil(mask.animation(forKey: "suggestions-unfold"))
+            XCTAssertTrue(field.currentEditor() === editor)
+            XCTAssertEqual(panel.frame, frame)
+            editor.insertText("u", replacementRange: editor.selectedRange())
+            spin()
+            XCTAssertTrue(layer.mask === mask, "Typing must not restart the opening animation")
+            SiteCardPanel.reveal(panel, under: field, animated: false)
+            XCTAssertNil(layer.mask)
+            XCTAssertNil(layer.animation(forKey: "suggestions-fade"))
+            panel.setFrameOrigin(NSPoint(x: frame.minX, y: spot.maxY + 3))
+            SiteCardPanel.reveal(panel, under: field, animated: true)
+            XCTAssertEqual(layer.mask?.anchorPoint.y, 0, "An above-field popup unfolds upwards")
+            RunLoop.main.run(until: Date(timeIntervalSinceNow: 0.4))
+            XCTAssertNil(layer.mask, "The settled popup must not clip later row changes")
+            SiteCardPanel.reveal(panel, under: field, animated: true)
+            browser.cancelTabEdit()
+            spin()
+            XCTAssertNil(panel.parent)
+            XCTAssertNil(layer.mask)
+            XCTAssertFalse(SiteCardPanel.suggestionsShown)
+        }
+    }
+
     func testMiddleInsertionPreservesNativeCaret() throws {
         try withField { browser, field, editor in
             editor.selectAll(nil)

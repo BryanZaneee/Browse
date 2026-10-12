@@ -33,6 +33,8 @@ in [ROADMAP.md](ROADMAP.md).
 
 ### Fixed
 
+- Tab address suggestions unfold from the field with a short reveal, using an immediate transition when Reduce Motion is enabled.
+
 - Editing a tab address leaves Site Information closed until requested from the tab menu, and address suggestions keep their icons aligned on the left.
 
 - The address inside a tab suggests pages from local history and completes them in place, as the ⌘L field does. Arrow keys choose a suggestion, Tab accepts it, and Return or a click opens it; Escape dismisses it. Works in the top bar, sidebar and split views ([#534](https://github.com/driceroland/Search/issues/534))
