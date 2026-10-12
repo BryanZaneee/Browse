@@ -1130,6 +1130,7 @@ struct ContentView: View {
         // back, so it belongs to whatever else wants it.
         if event.keyCode == 53 {
             if browser.editingTab != nil {
+                if let editor = event.window?.firstResponder as? NSTextView, editor.hasMarkedText() { return false }
                 if !browser.tabOffers.isEmpty || browser.tabEnding != nil { browser.dismissTabSuggestions() }
                 else { browser.cancelTabEdit() }
                 return true
@@ -1232,7 +1233,7 @@ struct ContentView: View {
                 browser.step(flags.contains(.shift) ? -1 : 1)
                 return true
             }
-            if browser.editingTab != nil { return true }
+            if browser.editingTab != nil { return false }
             // "red" then Tab: Reddit, in the field (SiteSearch.swift).
             if browser.fieldShowing, !flags.contains(.shift), browser.lockSiteOffer() { return true }
             if browser.fieldShowing, !browser.offers.isEmpty {

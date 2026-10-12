@@ -896,11 +896,15 @@ struct TabAddressField: NSViewRepresentable {
         var browser: Browser
         private var claimed = false
         private var focusPending = false
+        private var editRevision: Int
         var synced = ""
         private var deleting = false
         private var applying = false
 
-        init(browser: Browser) { self.browser = browser }
+        init(browser: Browser) {
+            self.browser = browser
+            editRevision = browser.tabEditRevision
+        }
 
         func claim(_ field: NSTextField, tries: Int = 0) {
             guard !claimed, !focusPending else { return }
@@ -934,6 +938,11 @@ struct TabAddressField: NSViewRepresentable {
 
         @MainActor func sync(_ field: NSTextField) {
             guard browser.editingTab != nil else { SiteCardPanel.hideSuggestions(for: browser); return }
+            if editRevision != browser.tabEditRevision {
+                editRevision = browser.tabEditRevision
+                claimed = false
+                focusPending = false
+            }
             let editor = field.currentEditor() as? NSTextView
             guard editor?.hasMarkedText() != true else { return }
             let want = browser.tabCompleted
@@ -996,6 +1005,7 @@ struct TabAddressField: NSViewRepresentable {
                 browser.commitTabEdit()
                 return true
             case #selector(NSResponder.cancelOperation(_:)):
+                guard !textView.hasMarkedText() else { return false }
                 if !browser.tabOffers.isEmpty || browser.tabEnding != nil {
                     browser.dismissTabSuggestions()
                     if let field = control as? NSTextField { sync(field) }
@@ -1065,7 +1075,7 @@ struct TabAddressField: NSViewRepresentable {
                 })
             }
             watcher = NSEvent.addLocalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown, .otherMouseDown]) { [weak self, weak field] event in
-                guard let self, let field, event.window === field.window,
+                guard let self, let field, field.currentEditor() != nil, event.window === field.window,
                       !field.bounds.contains(field.convert(event.locationInWindow, from: nil))
                 else { return event }
                 self.finishLater()

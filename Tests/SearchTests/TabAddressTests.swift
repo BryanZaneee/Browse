@@ -133,6 +133,7 @@ final class TabAddressTests: XCTestCase {
             XCTAssertTrue(browser.tabOffers.isEmpty)
             let coordinator = try XCTUnwrap(field.delegate as? TabAddressField.Coordinator)
             XCTAssertFalse(coordinator.control(field, textView: editor, doCommandBy: #selector(NSResponder.insertNewline(_:))))
+            XCTAssertFalse(coordinator.control(field, textView: editor, doCommandBy: #selector(NSResponder.cancelOperation(_:))))
             XCTAssertNotNil(browser.editingTab)
             editor.insertText("youtube", replacementRange: editor.markedRange())
             spin()
@@ -279,6 +280,43 @@ final class TabAddressTests: XCTestCase {
             XCTAssertEqual(editor.selectedRange(), NSRange(location: 29, length: 0))
             XCTAssertEqual(browser.tabDraft, field.stringValue)
             XCTAssertTrue(field.stringValue.contains("😀"))
+        }
+    }
+
+    func testOmniboxCommandsStayOutOfTabSuggestions() throws {
+        try withField { browser, _, _ in
+            let enabled = browser.prefs.commandBar
+            defer { browser.prefs.commandBar = enabled }
+            browser.prefs.commandBar = true
+            browser.typed = "settings"
+            XCTAssertTrue(browser.offers.first?.kind.isCommand == true)
+            browser.changeTabDraft("settings")
+            XCTAssertFalse(browser.tabOffers.contains { $0.kind.isCommand })
+            XCTAssertFalse(browser.tabOffers.isEmpty)
+        }
+    }
+
+    func testTabAddressDoesNotUseOmniboxSiteChip() throws {
+        try withField { browser, _, editor in
+            browser.siteChip = try XCTUnwrap(SiteSearch.match("red"))
+            defer { browser.siteChip = nil }
+            editor.selectAll(nil)
+            editor.insertText("about:blank#tab-editor", replacementRange: editor.selectedRange())
+            try key(editor, 36, "\r")
+            XCTAssertEqual(browser.active?.address?.absoluteString, "about:blank#tab-editor")
+        }
+    }
+
+    func testReopeningAnEditReclaimsAReusedNativeField() throws {
+        try withField { browser, field, _ in
+            let tab = try XCTUnwrap(browser.active)
+            browser.cancelTabEdit()
+            field.window?.makeFirstResponder(nil)
+            browser.beginTabEdit(tab)
+            spin()
+            let editor = try XCTUnwrap(field.currentEditor() as? NSTextView)
+            XCTAssertEqual(editor.selectedRange(), NSRange(location: 0, length: (field.stringValue as NSString).length))
+            XCTAssertEqual(browser.editingTab, tab.id)
         }
     }
 

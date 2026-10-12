@@ -276,6 +276,10 @@ final class Browser: NSObject, ObservableObject {
 
     func destination(for typed: String) -> URL? {
         if let site = siteChip { return site.url(for: typed) }
+        return addressDestination(for: typed)
+    }
+
+    func addressDestination(for typed: String) -> URL? {
         if let url = Address.url(from: typed) { return url }
         if let (keyword, rest) = Keyword.match(typed, in: prefs.keywords),
            let url = Engine.url(for: rest, template: keyword.template) {
@@ -1375,7 +1379,7 @@ final class Browser: NSObject, ObservableObject {
         }
         let url = completed && tabPicked != nil
             ? tabPicked.flatMap { tabOffers.indices.contains($0) ? tabOffers[$0].url : nil }
-            : destination(for: completed ? tabCompleted : tabDraft)
+            : addressDestination(for: completed ? tabCompleted : tabDraft)
         guard let url else {
             // Stay put and say so, rather than quietly throwing the edit away.
             refusals += 1
@@ -1406,7 +1410,7 @@ final class Browser: NSObject, ObservableObject {
         }
         let draft = tabDraft.trimmingCharacters(in: .whitespacesAndNewlines)
         if draft.isEmpty || tab.address.map({ Address.editable($0) == draft }) == true
-            || destination(for: draft) == nil {
+            || addressDestination(for: draft) == nil {
             cancelTabEdit()
             return
         }
