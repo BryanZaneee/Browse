@@ -1199,10 +1199,10 @@ struct TabMenu: View {
             browser.duplicate()
         }
         .disabled(tab.isBlank)
-        // The card a click on the tab you are on shows under its address.
+        // Page details are requested explicitly, separate from editing its address.
         Button("Site Information…") {
             if browser.activeID != tab.id { browser.select(tab) }
-            browser.beginTabEdit(tab)
+            browser.beginTabEdit(tab, siteInformation: true)
         }
         .disabled(tab.isBlank || tab.address == nil || tab.pin != nil)
         Button("Copy Address") {

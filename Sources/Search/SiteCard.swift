@@ -3,11 +3,11 @@ import Combine
 import SecurityInterface
 import SwiftUI
 
-// The site card: what a click on the tab you are on shows under its address,
+// The site card: what Right-click › Site Information… shows under its address,
 // in the column and in the bar across the top alike — whether the connection
 // is private, and the few things that belong to the page (copy its address,
 // print it, its zoom, whether it may play sound by itself, whether its videos
-// float out). Right-click › Site Information… opens the same. It goes as soon
+// float out). It goes as soon
 // as you type, when the address is left, or when one of its lines is used.
 // From #56, whose bar it came with; the bar itself stayed out, since Search
 // has the column or the strip, never a second row over the page.
@@ -52,15 +52,12 @@ enum SiteCardPanel {
     /// the browser's edit rather than any one field, and stands under the one
     /// with the caret.
     private static weak var anchor: NSView?
-    private static var watching: [ObjectIdentifier: AnyCancellable] = [:]
-    /// The address as the edit began with it.
-    private static var original: String?
 
     static func follow(_ browser: Browser, anchor field: NSView) {
         anchor = field
-        let key = ObjectIdentifier(browser)
-        guard watching[key] == nil else { return }
-        watching[key] = browser.$editingTab.combineLatest(browser.$tabDraft)
+        guard browser.tabInformationWatch == nil else { return }
+        var original: String?
+        browser.tabInformationWatch = browser.$editingTab.combineLatest(browser.$tabDraft)
             .receive(on: DispatchQueue.main)
             .sink { [weak browser] editing, draft in
                 MainActor.assumeIsolated {
@@ -68,11 +65,11 @@ enum SiteCardPanel {
                     guard let id = editing, !browser.renamingTab,
                           let tab = browser.tabs.first(where: { $0.id == id }), !tab.isBlank
                     else { original = nil; hide(); return }
-                    if original == nil {
+                    if original == nil, browser.showingTabInformation {
                         // The edit began: the card comes up under the field once it
                         // is in its window.
                         original = draft
-                        place(tab, browser, tries: 0)
+                        place(tab, browser, original: draft, tries: 0)
                     } else if draft != original, !suggestionsShown {
                         // Typing somewhere else: the card was about the page you are on.
                         hide()
@@ -81,14 +78,14 @@ enum SiteCardPanel {
             }
     }
 
-    private static func place(_ tab: Tab, _ browser: Browser, tries: Int) {
+    private static func place(_ tab: Tab, _ browser: Browser, original: String, tries: Int) {
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.03) {
-            guard original != nil, browser.editingTab == tab.id, browser.tabDraft == original else { return }
+            guard browser.showingTabInformation, browser.editingTab == tab.id, browser.tabDraft == original else { return }
             // The field with the caret in it is the one on screen; failing
             // that, the latest one made.
             let focused = ((browser.window ?? Links.window)?.firstResponder as? NSTextView)?.delegate as? NSTextField
             guard let field = focused ?? anchor, field.window != nil else {
-                if tries < 15 { place(tab, browser, tries: tries + 1) }
+                if tries < 15 { place(tab, browser, original: original, tries: tries + 1) }
                 return
             }
             show(for: tab, in: browser, under: field)

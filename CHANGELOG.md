@@ -33,6 +33,8 @@ in [ROADMAP.md](ROADMAP.md).
 
 ### Fixed
 
+- Editing a tab address leaves Site Information closed until requested from the tab menu, and address suggestions keep their icons aligned on the left.
+
 - The address inside a tab suggests pages from local history and completes them in place, as the ⌘L field does. Arrow keys choose a suggestion, Tab accepts it, and Return or a click opens it; Escape dismisses it. Works in the top bar, sidebar and split views ([#534](https://github.com/driceroland/Search/issues/534))
 
 - A website an extension lists in its manifest can send it messages, as in Chrome: claude.ai, for one, hands Claude in Chrome its sign-in that way, and approving it ended in "Authorization failed". Only the sites an extension names get to, by Chrome's own rules, and Google's sites are left out. A page already open when Search starts needs a reload first. Thanks [@cunyiles](https://github.com/cunyiles) for tracking it down ([#496](https://github.com/driceroland/Search/issues/496))

@@ -45,6 +45,30 @@ final class TabAddressTests: XCTestCase {
         RunLoop.main.run(until: Date(timeIntervalSinceNow: 0.08))
     }
 
+    func testSiteInformationOnlyOpensWhenRequested() throws {
+        try withField { browser, field, _ in
+            XCTAssertNotNil(field.currentEditor())
+            XCTAssertFalse(SiteCardPanel.isShown)
+            XCTAssertFalse(SiteCardPanel.suggestionsShown)
+            let tab = try XCTUnwrap(browser.active)
+            browser.beginTabEdit(tab, siteInformation: true)
+            spin()
+            spin()
+            XCTAssertTrue(SiteCardPanel.isShown)
+            let editor = try XCTUnwrap(field.currentEditor() as? NSTextView)
+            editor.selectAll(nil)
+            editor.insertText("yout", replacementRange: editor.selectedRange())
+            spin()
+            XCTAssertFalse(SiteCardPanel.isShown)
+            XCTAssertTrue(SiteCardPanel.suggestionsShown)
+            browser.beginTabEdit(tab)
+            spin()
+            spin()
+            XCTAssertFalse(SiteCardPanel.isShown)
+            XCTAssertFalse(SiteCardPanel.suggestionsShown)
+        }
+    }
+
     func testMiddleInsertionPreservesNativeCaret() throws {
         try withField { browser, field, editor in
             editor.selectAll(nil)

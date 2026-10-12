@@ -1347,13 +1347,17 @@ final class Browser: NSObject, ObservableObject {
     /// somewhere: the same field, the same keys, a different thing at the end.
     @Published private(set) var renamingTab = false
 
-    func beginTabEdit(_ tab: Tab) {
+    private(set) var showingTabInformation = false
+    var tabInformationWatch: AnyCancellable?
+
+    func beginTabEdit(_ tab: Tab, siteInformation: Bool = false) {
         cancelTabEdit()
         guard let url = tab.address else {
             edit()
             return
         }
         renamingTab = false
+        showingTabInformation = siteInformation
         tabDraft = Address.editable(url)
         editingTab = tab.id
         tabNavigation = tab.$address.removeDuplicates().dropFirst().sink { [weak self] _ in self?.cancelTabEdit() }
@@ -1394,6 +1398,7 @@ final class Browser: NSObject, ObservableObject {
         tabNavigation = nil
         dismissTabSuggestions()
         editingTab = nil
+        showingTabInformation = false
         renamingTab = false
         tabDraft = ""
     }
