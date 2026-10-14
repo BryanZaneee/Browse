@@ -1,22 +1,20 @@
-# Search
+# Browse
 
-A small, fast, quiet web browser for the Mac, by [Office Commun](https://officecommun.com).
+An independent community fork of [Search](https://github.com/driceroland/Search), a small WebKit browser for macOS. This repository is named Browse; the app itself has not been rebranded yet.
+
+> **Fork status:** Builds still identify themselves as Search and use Search's app identifier, data folder, and Office Commun signed update feed. There are no Browse releases or downloads yet. Don't treat a source build as an independent Browse release.
 
 ![Search, with its tabs down the left and a page taking the rest of the window](.github/screenshot.png)
 
-**[Download for macOS →](https://officecommun.com/search)** · macOS 14 or later · free · about 6 MB
-
-Or with [Homebrew](https://brew.sh): `brew install --cask driceroland/tap/search`
+The original Search app and its downloads remain at [Office Commun](https://officecommun.com/search). Those downloads are signed and updated by the original project, not by this fork.
 
 ---
 
 ## What it is
 
-Search is a browser with nothing in the way. A row of tabs — across the top or down the left, your choice — and the page. There is no toolbar, no start page, no sidebar of suggestions, no account to sign into, nothing that wants your attention. You type an address or a few words in one field and you are on the page.
+The browser keeps the page in focus. Tabs can run across the top or down the side, and you type an address or search words in one field.
 
-It uses **WebKit**, the engine already inside every Mac (it is what Safari runs on). That is why the whole app is about 3 MB on disk and opens instantly: there is no second copy of Chromium to download, update and keep in memory.
-
-It was built by a design studio that spends its whole day in a browser and was tired of the ones that had become products. This one is a tool.
+It uses **WebKit**, the engine built into macOS, rather than bundling Chromium.
 
 ## What it does
 
@@ -31,7 +29,7 @@ It was built by a design studio that spends its whole day in a browser and was t
 - **Light, dark, or the Mac's own.** The frame and the pages follow.
 - **Bookmarks, history, downloads** — each a panel, each searchable, each one keystroke away.
 - **Chrome extensions, without Chrome.** Paste a Chrome Web Store link in Settings › Extensions, or open the extension's page in Search and press Add. It runs on WebKit's own extension engine — the one Safari uses — and where Chrome has APIs WebKit doesn't (bookmarks, history, downloads, side panel, offscreen documents, fonts, notifications, speech, OAuth sign-in), Search fills them in itself. They live behind the puzzle button; pin the ones you use often. Building your own? Load its folder as an unpacked extension and press Reload after each change, as in Chrome's developer mode. macOS 15.4 or later.
-- **Updates itself, quietly.** Once a day it checks for a newer build, downloads it, verifies it is signed by Office Commun, and swaps it in for the next launch. Nothing restarts on its own.
+- **Updates:** the current app code checks at launch and hourly, and accepts updates signed by Office Commun. That feed belongs to Search; Browse does not have its own update service yet.
 
 ## What it doesn't do
 
@@ -39,8 +37,8 @@ On purpose:
 
 - No extension you have to install to feel at home. Blocking ads, hiding clutter, reading mode, picture-in-picture and passwords are built in; extensions are there for everything else.
 - No sync, no account, no cloud. Your tabs, history and passwords are on your Mac and nowhere else.
-- No telemetry, no analytics, no crash reports sent anywhere. The only things that leave your Mac are the pages you ask for, their icons, and one small request a day to see whether there is a newer version.
-- One window. Tabs are the only kind of "new" there is.
+- No telemetry, no analytics, no crash reports sent anywhere. The current Search updater also contacts the upstream update feed.
+- Multiple windows, each with its own tabs and space.
 
 ## Privacy, concretely
 
@@ -81,8 +79,10 @@ So anyone can read exactly what a browser handling their passwords and history i
 ### Building it
 
 - macOS 14 or later, Xcode 16 / Swift 6 toolchain
-- `swift build` — runs the app straight from the SwiftPM binary
+- `swift build` — builds the command-line executable; `swift run` launches it
 - `./build.sh` — assembles a real, double-clickable `Search.app` in `build/`, ad-hoc signed so it runs on your own Mac
+
+These commands still produce Search, using Search's existing bundle identifier and data location. This fork needs its own app identity and signed update feed before it can ship Browse builds safely.
 
 A build you make yourself won't be notarized or carry Office Commun's Developer ID, so the first launch needs a right-click → Open (or an allow in System Settings → Privacy & Security). That's expected — it's the same thing that happens with any app that isn't from the App Store or a notarized DMG. Your own build also keeps its passwords apart from a signed Search's: the keychain tells the two apart by their signatures.
 
@@ -122,4 +122,4 @@ Issues and pull requests are genuinely welcome — see [CONTRIBUTING.md](CONTRIB
 
 ### License
 
-MIT — see [LICENSE](LICENSE). Do what you want with the code. "Search" and the app icon are Office Commun's; please rename a fork before distributing it under another name.
+MIT — see [LICENSE](LICENSE). The license covers the source code. Search's name and icon belong to Office Commun; this fork's repository name does not grant rights to those marks.
