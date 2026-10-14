@@ -99,9 +99,8 @@ private struct PaneLayers: View {
 
     var body: some View {
         ZStack {
-            // The page's own layers — its cover, the floating video's line,
-            // its trouble, the history disc — without the page, which is
-            // the stage's.
+            // The page's cover, trouble and history disc, without the page
+            // itself, which is the stage's.
             Page(tab: tab, holdsPage: false)
 
             if browser.fieldShowing && focused {

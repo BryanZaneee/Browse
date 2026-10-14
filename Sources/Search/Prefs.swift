@@ -257,13 +257,9 @@ final class Preferences: ObservableObject {
             PageView.holdsHistory = holdsHistory
         }
     }
-    /// Two fingers flick the floating video to a corner (see Float.swift).
-    /// On unless turned off.
-    @Published var floatFlicks: Bool {
-        didSet {
-            store.set(floatFlicks, forKey: "float.flicks")
-            Float.flicks = floatFlicks
-        }
+    /// The existing PiP command beside Bookmarks, only when asked for.
+    @Published var showsPiPButton: Bool {
+        didSet { store.set(showsPiPButton, forKey: "pip.button") }
     }
     /// A video playing floats out when another app comes to the front, and
     /// back when Search does (see Browser.appLeft). Off unless asked for.
@@ -438,11 +434,7 @@ final class Preferences: ObservableObject {
         let history = store.bool(forKey: "swipe.history")
         holdsHistory = history
         PageView.holdsHistory = history
-        // On for everyone who never touched these three switches (Drice,
-        // 27 Sep 2026); a choice made before stands.
-        let flicks = store.object(forKey: "float.flicks") as? Bool ?? true
-        floatFlicks = flicks
-        Float.flicks = flicks
+        showsPiPButton = store.bool(forKey: "pip.button")
         floatsAway = store.bool(forKey: "float.away")
         floatsOnLeave = store.object(forKey: "float.leave") as? Bool ?? true
         waitsForPlay = store.bool(forKey: Preferences.waitsKey)

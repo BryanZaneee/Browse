@@ -28,7 +28,7 @@ enum Web {
     /// included, and registering a name twice is a hard crash.
     @MainActor static func release(_ controller: WKUserContentController) {
         for name in [ScrollRelay.name, VeilRelay.name, FormRelay.name, ImageRelay.name,
-                     StoreRelay.name, PasskeyRelay.name, MiddleRelay.name, IconRelay.name] {
+                     StoreRelay.name, PasskeyRelay.name, MiddleRelay.name, IconRelay.name, VideoRelay.name] {
             controller.removeScriptMessageHandler(forName: name, contentWorld: world)
             controller.removeScriptMessageHandler(forName: name, contentWorld: .page)
         }
@@ -287,6 +287,7 @@ final class Tab: ObservableObject, Identifiable {
     var pageAddress: URL? { committed ?? address }
 
     func didCommit() {
+        video.reset()
         // A new document: whatever the old one waited for under its field
         // went with it.
         if let built { Passkeys.shared.forget(built) }
@@ -382,8 +383,10 @@ final class Tab: ObservableObject, Identifiable {
     /// True while the page has taken over the screen.
     @Published var immersed = false
 
-    /// True while this tab's page is out in the little window.
+    /// Only its video is presented elsewhere; the page stays usable.
     @Published var floating = false
+    @Published var hasVideo = false
+    let video = VideoRelay()
 
     /// A sideways swipe in progress, for the disc that shows it.
     @Published var pull: Pull?
@@ -590,6 +593,7 @@ final class Tab: ObservableObject, Identifiable {
         // made with the tab, often long before its page, and a site or an
         // extension can hand over one of its own.
         FrameRate.apply(to: configuration.preferences)
+        Float.enable(configuration.preferences)
         let web = PageView(frame: .zero, configuration: configuration)
         // The trackpad pinch is WebKit's own: it magnifies what is on screen
         // and lets you move around inside it, the way pinching does everywhere
@@ -639,6 +643,8 @@ final class Tab: ObservableObject, Identifiable {
         hovered.tab = self
         controller.add(hovered, contentWorld: .defaultClient, name: HoveredLink.name)
         controller.add(middles, contentWorld: Web.world, name: MiddleRelay.name)
+        video.tab = self
+        controller.add(video, contentWorld: Web.world, name: VideoRelay.name)
         Shield.shared.protect(controller)
         built = web
         // A tab muted before it went to sleep wakes muted.
@@ -732,6 +738,9 @@ final class Tab: ObservableObject, Identifiable {
         guard let built else { return }
         let controller = built.configuration.userContentController
         controller.removeAllUserScripts()
+        controller.addUserScript(
+            WKUserScript(source: VideoRelay.script, injectionTime: .atDocumentEnd, forMainFrameOnly: false, in: Web.world)
+        )
         controller.addUserScript(
             WKUserScript(source: ScrollRelay.script, injectionTime: .atDocumentEnd, forMainFrameOnly: true, in: Web.world)
         )
@@ -1355,6 +1364,7 @@ final class Tab: ObservableObject, Identifiable {
     /// back-forward cache. The tab keeps its address; `web` builds again the
     /// next time anyone asks for it.
     private func discard() {
+        video.reset()
         watch = []
         ears.stop()
         guard let web = built else { return }
