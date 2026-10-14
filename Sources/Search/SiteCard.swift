@@ -31,12 +31,15 @@ enum SiteCardPanel {
 
     static func suggest(_ browser: Browser, under field: NSTextField) {
         guard let id = browser.editingTab, !browser.renamingTab, !browser.tabOffers.isEmpty,
-              field.currentEditor() != nil, let window = field.window else { return }
+              let editor = field.currentEditor() as? NSTextView, let window = field.window else { return }
         guard let surface = TabAddressSurface.find(for: browser, field: field, reusing: suggestionSurface) else { return }
         let width = surface.bounds.width
+        // Include the native text container’s padding, then remove the list’s outer padding.
+        let leadingInset = surface.convert(field.bounds, from: field).minX
+            + editor.textContainerOrigin.x + (editor.textContainer?.lineFragmentPadding ?? 0) - 6
         if suggestionsShown, suggestionBrowser === browser, let panel, panel.parent === window {
-            if let host = panel.contentView?.subviews.first as? FirstClick, host.frame.width != width {
-                host.rootView = AnyView(TabSuggestions(browser: browser, tab: id).frame(width: width))
+            if let host = panel.contentView?.subviews.first as? FirstClick {
+                host.rootView = AnyView(TabSuggestions(browser: browser, tab: id, leadingInset: leadingInset).frame(width: width))
             }
             if suggestionSurface !== surface { suggestionSurface?.attach(above: nil) }
             suggestionSurface = surface
@@ -47,7 +50,7 @@ enum SiteCardPanel {
         suggestionsShown = true
         suggestionBrowser = browser
         suggestionSurface = surface
-        present(AnyView(TabSuggestions(browser: browser, tab: id).frame(width: width)), under: field)
+        present(AnyView(TabSuggestions(browser: browser, tab: id, leadingInset: leadingInset).frame(width: width)), under: field)
     }
 
     // MARK: - when
@@ -709,12 +712,13 @@ enum MenuMetrics {
 private struct TabSuggestions: View {
     @ObservedObject var browser: Browser
     let tab: Tab.ID
+    let leadingInset: CGFloat
 
     var body: some View {
         VStack(spacing: 0) {
             ForEach(Array(browser.tabOffers.enumerated()), id: \.element.id) { index, offer in
                 Button { browser.takeTabSuggestion(offer, for: tab) } label: {
-                    Omnibox.Row(offer: offer, picked: browser.tabPicked == index, selectionBackground: Palette.ground)
+                    Omnibox.Row(offer: offer, picked: browser.tabPicked == index, selectionBackground: Palette.ground, leadingInset: leadingInset)
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel(offer.key + (offer.title.isEmpty ? "" : ", " + offer.title))

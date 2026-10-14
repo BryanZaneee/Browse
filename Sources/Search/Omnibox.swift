@@ -152,6 +152,7 @@ struct Omnibox: View {
         /// quieter mark, and changes nothing but the look of the row.
         let picked: Bool
         var selectionBackground = Palette.wash
+        var leadingInset: CGFloat = 12
 
         @State private var hovering = false
 
@@ -202,7 +203,8 @@ struct Omnibox: View {
                 }
                 Spacer(minLength: 0)
             }
-            .padding(.horizontal, 12)
+            .padding(.leading, leadingInset)
+            .padding(.trailing, 12)
             .padding(.vertical, 9)
             .background {
                 if picked {
