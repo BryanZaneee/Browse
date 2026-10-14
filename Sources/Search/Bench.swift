@@ -882,6 +882,9 @@ final class Bench {
                 "titleBar": y <= Double(window.frame.height - window.contentLayoutRect.height),
             ])
 
+        case "tabfield":
+            tabFieldCommand(request, browser: browser, answer)
+
         case "field":
             // Text put into the address field the way a paste puts it — the
             // whole of it replacing what is selected — or typed a character
@@ -2266,7 +2269,7 @@ final class Bench {
 
         default:
             answer(["error": "unknown command “\(verb)”", "commands": [
-                "tabs", "open", "go", "close", "wait", "sleep", "select", "text", "eval", "click", "type", "submit", "shot", "probe", "key", "textcheck", "resize", "hit", "film", "float", "pip", "window", "pages", "picture", "place", "group", "tospace", "field", "bookmark", "marks", "menu", "keyeq", "fill", "pin", "middle", "windows", "quit", "towindow", "news", "pull", "space", "split", "strip", "column", "fold", "consent", "update", "site", "little", "ui", "import", "import-preview", "import-file", "import-file-start", "import-file-status", "import-file-cancel", "remove-folder", "accounts", "find", "answer", "visible", "ai", "notifications",
+                "tabs", "open", "go", "close", "wait", "sleep", "select", "text", "eval", "click", "type", "submit", "shot", "probe", "key", "textcheck", "resize", "hit", "film", "float", "pip", "window", "pages", "picture", "place", "group", "tospace", "field", "tabfield", "bookmark", "marks", "menu", "keyeq", "fill", "pin", "middle", "windows", "quit", "towindow", "news", "pull", "space", "split", "strip", "column", "fold", "consent", "update", "site", "little", "ui", "import", "import-preview", "import-file", "import-file-start", "import-file-status", "import-file-cancel", "remove-folder", "accounts", "find", "answer", "visible", "ai", "notifications",
             ]])
         }
     }
@@ -2283,6 +2286,122 @@ final class Bench {
 
     /// The view a `split mouse … to: view` press landed on, for the rest of it.
     private weak var pressed: NSView?
+
+    /// Drives the actual tab field in the hidden test window, never a model setter.
+    private func tabFieldCommand(_ request: [String: Any], browser: Browser,
+                                 _ answer: @escaping ([String: Any]) -> Void) {
+        guard Store.testing else { answer(["error": "tabfield only works on a --test run"]); return }
+        let action = request["action"] as? String ?? "state"
+        if action == "seed" {
+            guard let text = request["url"] as? String, let url = URL(string: text),
+                  ["localhost", "127.0.0.1", "::1"].contains(url.host() ?? "") else {
+                answer(["error": "seed needs a local fixture URL"]); return
+            }
+            browser.history.take(url, title: request["title"] as? String ?? "Fixture", count: 10, last: Date())
+            answer(["ok": true]); return
+        }
+        if action == "begin" {
+            guard let tab = find(request, in: browser) ?? browser.active else { answer(["error": "no tab"]); return }
+            browser.beginTabEdit(tab)
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + (action == "begin" ? 0.2 : 0)) {
+            func locate(_ view: NSView?) -> NSTextField? {
+                guard let view else { return nil }
+                if let field = view as? NSTextField, field.delegate is TabAddressField.Coordinator { return field }
+                return view.subviews.lazy.compactMap { locate($0) }.first
+            }
+            let window = browser.window ?? Links.window
+            func currentField() -> NSTextField? {
+                if let editor = window?.firstResponder as? NSTextView,
+                   let field = editor.delegate as? NSTextField, field.delegate is TabAddressField.Coordinator { return field }
+                return locate(window?.contentView)
+            }
+            let field = currentField()
+            let editor = field?.currentEditor() as? NSTextView
+            let panel = NSApp.windows.first { $0.identifier?.rawValue == "tab-address-suggestions" && $0.parent != nil }
+            if let selection = request["selection"] as? [Int], selection.count == 2, let editor {
+                guard selection[0] >= 0, selection[1] >= 0,
+                      selection[0] <= (editor.string as NSString).length,
+                      selection[1] <= (editor.string as NSString).length - selection[0] else {
+                    answer(["error": "selection outside the native text"]); return
+                }
+                editor.setSelectedRange(NSRange(location: selection[0], length: selection[1]))
+            }
+            func sendKey(_ text: String, code: UInt16, to editor: NSTextView) -> Bool {
+                guard let event = NSEvent.keyEvent(with: .keyDown, location: .zero, modifierFlags: [],
+                    timestamp: ProcessInfo.processInfo.systemUptime, windowNumber: window?.windowNumber ?? 0,
+                    context: nil, characters: text, charactersIgnoringModifiers: text,
+                    isARepeat: false, keyCode: code) else { return false }
+                if let hook = ContentView.keyHooks[ObjectIdentifier(browser)], hook(event) == nil { return true }
+                editor.keyDown(with: event)
+                return true
+            }
+            var typingMS: [Double] = []
+            switch action {
+            case "type":
+                guard let editor, let text = request["text"] as? String else { answer(["error": "no native editor or text"]); return }
+                if request["replace"] as? Bool == true { editor.selectAll(nil) }
+                for character in text {
+                    let start = CACurrentMediaTime()
+                    guard sendKey(String(character), code: Bench.keyCode(for: character), to: editor) else { continue }
+                    typingMS.append((CACurrentMediaTime() - start) * 1000)
+                }
+            case "key":
+                let keys: [String: (UInt16, String)] = ["down": (125, "\u{f701}"), "up": (126, "\u{f700}"),
+                    "enter": (36, "\r"), "tab": (48, "\t"), "escape": (53, "\u{1b}"), "backspace": (51, "\u{7f}")]
+                guard let editor, let name = request["key"] as? String, let key = keys[name],
+                      sendKey(key.1, code: key.0, to: editor)
+                else { answer(["error": "no native editor or unknown key"]); return }
+            case "blur": window?.makeFirstResponder(nil)
+            case "click":
+                guard let panel, let root = panel.contentView, let row = request["row"] as? Int,
+                      browser.tabOffers.indices.contains(row) else { answer(["error": "no suggestion row"]); return }
+                let height = (root.bounds.height - 12) / CGFloat(browser.tabOffers.count)
+                let point = NSPoint(x: root.bounds.midX, y: root.bounds.height - 6 - height * (CGFloat(row) + 0.5))
+                let spot = root.convert(point, to: nil)
+                guard let target = root.hitTest(point) else { answer(["error": "row has no view"]); return }
+                for type in [NSEvent.EventType.leftMouseDown, .leftMouseUp] {
+                    guard let event = NSEvent.mouseEvent(with: type, location: spot, modifierFlags: [],
+                        timestamp: ProcessInfo.processInfo.systemUptime, windowNumber: panel.windowNumber,
+                        context: nil, eventNumber: 0, clickCount: 1, pressure: type == .leftMouseDown ? 1 : 0) else { continue }
+                    if type == .leftMouseDown { target.mouseDown(with: event) } else { target.mouseUp(with: event) }
+                }
+            case "picture":
+                guard let path = request["path"] as? String, let view = panel?.contentView?.subviews.first else {
+                    answer(["error": "no suggestions to picture"]); return
+                }
+                view.layoutSubtreeIfNeeded()
+                guard let picture = view.bitmapImageRepForCachingDisplay(in: view.bounds) else {
+                    answer(["error": "no suggestions to picture"]); return
+                }
+                view.cacheDisplay(in: view.bounds, to: picture)
+                do { try picture.representation(using: .png, properties: [:])?.write(to: URL(fileURLWithPath: path)) }
+                catch { answer(["error": error.localizedDescription]); return }
+            case "begin", "state": break
+            default: answer(["error": "unknown tabfield action"]); return
+            }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
+                let current = currentField()
+                let editing = current?.currentEditor() as? NSTextView
+                let selected = editing?.selectedRange() ?? NSRange(location: 0, length: 0)
+                let popup = NSApp.windows.first { $0.identifier?.rawValue == "tab-address-suggestions" && $0.parent != nil }
+                func rect(_ frame: NSRect) -> [Double] { [frame.minX, frame.minY, frame.width, frame.height] }
+                answer(["field": current?.stringValue ?? "", "draft": browser.tabDraft,
+                    "selection": [selected.location, selected.length], "offers": browser.tabOffers.map(\.key),
+                    "picked": browser.tabPicked ?? -1, "editing": browser.editingTab?.uuidString ?? "",
+                    "native": editing != nil, "panel": SiteCardPanel.suggestionsShown, "typingMS": typingMS,
+                    "parked": browser.tabEditParked, "panelShadow": popup?.hasShadow ?? false,
+                    "surfaceFrame": current.flatMap { field in TabAddressSurface.find(for: browser, field: field).flatMap { surface in
+                        surface.window.map { rect($0.convertToScreen(surface.convert(surface.bounds, to: nil))) }
+                    } } ?? [],
+                    "panelFrame": popup.map { rect($0.frame) } ?? [], "panelID": popup?.windowNumber ?? -1,
+                    "screenFrame": window?.screen.map { rect($0.visibleFrame) } ?? [],
+                    "anchorFrame": current.flatMap { field in field.window.map { rect($0.convertToScreen(field.convert(field.bounds, to: nil))) } } ?? [],
+                    "address": browser.active?.address?.absoluteString ?? "",
+                    "fieldFrame": current.map { NSStringFromRect($0.convert($0.bounds, to: nil)) } ?? ""])
+            }
+        }
+    }
 
     private func splitCommand(
         _ request: [String: Any],

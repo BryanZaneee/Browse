@@ -3,12 +3,12 @@ import Combine
 import SecurityInterface
 import SwiftUI
 
-// The site card: what a click on the tab you are on shows under its address,
+// The site card: what Right-click › Site Information… shows under its address,
 // in the column and in the bar across the top alike — whether the connection
 // is private, and the few things that belong to the page (copy its address,
 // print it, its zoom, whether it may play sound by itself, whether its videos
-// float out). Right-click › Site Information… opens the same. It goes as soon
-// as you type, when the address is left, or when one of its lines is used.
+// float out). It goes as soon as you type, when the address is left, or when
+// one of its lines is used.
 // From #56, whose bar it came with; the bar itself stayed out, since Search
 // has the column or the strip, never a second row over the page.
 
@@ -20,7 +20,38 @@ enum SiteCardPanel {
     private static var panel: Panel?
     private static var resign: Any?
 
-    static var isShown: Bool { panel != nil }
+    static var isShown: Bool { panel != nil && !suggestionsShown }
+    private(set) static var suggestionsShown = false
+    private static weak var suggestionBrowser: Browser?
+    private static weak var suggestionSurface: TabAddressSurface.Surface?
+
+    static func hideSuggestions(for browser: Browser) {
+        if suggestionsShown, suggestionBrowser === browser { hide() }
+    }
+
+    static func suggest(_ browser: Browser, under field: NSTextField) {
+        guard let id = browser.editingTab, !browser.renamingTab, !browser.tabOffers.isEmpty,
+              let editor = field.currentEditor() as? NSTextView, let window = field.window else { return }
+        guard let surface = TabAddressSurface.find(for: browser, field: field, reusing: suggestionSurface) else { return }
+        let width = surface.bounds.width
+        // Include the native text container’s padding, then remove the list’s outer padding.
+        let leadingInset = surface.convert(field.bounds, from: field).minX
+            + editor.textContainerOrigin.x + (editor.textContainer?.lineFragmentPadding ?? 0) - 6
+        if suggestionsShown, suggestionBrowser === browser, let panel, panel.parent === window {
+            if let host = panel.contentView?.subviews.first as? FirstClick {
+                host.rootView = AnyView(TabSuggestions(browser: browser, tab: id, leadingInset: leadingInset).frame(width: width))
+            }
+            if suggestionSurface !== surface { suggestionSurface?.attach(above: nil) }
+            suggestionSurface = surface
+            position(panel, under: field)
+            return
+        }
+        hide()
+        suggestionsShown = true
+        suggestionBrowser = browser
+        suggestionSurface = surface
+        present(AnyView(TabSuggestions(browser: browser, tab: id, leadingInset: leadingInset).frame(width: width)), under: field)
+    }
 
     // MARK: - when
 
@@ -29,15 +60,12 @@ enum SiteCardPanel {
     /// the browser's edit rather than any one field, and stands under the one
     /// with the caret.
     private static weak var anchor: NSView?
-    private static var watching: [ObjectIdentifier: AnyCancellable] = [:]
-    /// The address as the edit began with it.
-    private static var original: String?
 
     static func follow(_ browser: Browser, anchor field: NSView) {
         anchor = field
-        let key = ObjectIdentifier(browser)
-        guard watching[key] == nil else { return }
-        watching[key] = browser.$editingTab.combineLatest(browser.$tabDraft)
+        guard browser.tabInformationWatch == nil else { return }
+        var original: String?
+        browser.tabInformationWatch = browser.$editingTab.combineLatest(browser.$tabDraft)
             .receive(on: DispatchQueue.main)
             .sink { [weak browser] editing, draft in
                 MainActor.assumeIsolated {
@@ -45,12 +73,12 @@ enum SiteCardPanel {
                     guard let id = editing, !browser.renamingTab,
                           let tab = browser.tabs.first(where: { $0.id == id }), !tab.isBlank
                     else { original = nil; hide(); return }
-                    if original == nil {
+                    if original == nil, browser.showingTabInformation {
                         // The edit began: the card comes up under the field once it
                         // is in its window.
                         original = draft
-                        place(tab, browser, tries: 0)
-                    } else if draft != original {
+                        place(tab, browser, original: draft, tries: 0)
+                    } else if draft != original, !suggestionsShown {
                         // Typing somewhere else: the card was about the page you are on.
                         hide()
                     }
@@ -58,14 +86,14 @@ enum SiteCardPanel {
             }
     }
 
-    private static func place(_ tab: Tab, _ browser: Browser, tries: Int) {
+    private static func place(_ tab: Tab, _ browser: Browser, original: String, tries: Int) {
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.03) {
-            guard original != nil, browser.editingTab == tab.id, browser.tabDraft == original else { return }
+            guard browser.showingTabInformation, browser.editingTab == tab.id, browser.tabDraft == original else { return }
             // The field with the caret in it is the one on screen; failing
             // that, the latest one made.
             let focused = ((browser.window ?? Links.window)?.firstResponder as? NSTextView)?.delegate as? NSTextField
             guard let field = focused ?? anchor, field.window != nil else {
-                if tries < 15 { place(tab, browser, tries: tries + 1) }
+                if tries < 15 { place(tab, browser, original: original, tries: tries + 1) }
                 return
             }
             show(for: tab, in: browser, under: field)
@@ -74,67 +102,132 @@ enum SiteCardPanel {
 
     /// Under `field`, the tab's address, in `browser`'s window.
     private static func show(for tab: Tab, in browser: Browser, under field: NSView) {
-        guard let window = field.window else { return }
+        guard field.window != nil else { return }
         hide()
         let card = SiteCard(browser: browser, tab: tab) {
             SiteCardPanel.hide()
             browser.cancelTabEdit()
         }
-        let host = FirstClick(rootView: AnyView(card.fixedSize()))
+        present(AnyView(card.fixedSize()), under: field)
+    }
+
+    private static func present(_ content: AnyView, under field: NSView) {
+        guard let window = field.window else { return }
+        let host = FirstClick(rootView: content)
         let size = host.fittingSize
-        let glass = NSVisualEffectView(frame: NSRect(origin: .zero, size: size))
-        glass.material = .menu
-        glass.state = .active
+        let glass: NSView
+        if suggestionsShown {
+            glass = NSView(frame: NSRect(origin: .zero, size: size))
+        } else {
+            let effect = NSVisualEffectView(frame: NSRect(origin: .zero, size: size))
+            effect.material = .menu
+            effect.state = .active
+            glass = effect
+        }
         glass.wantsLayer = true
-        glass.layer?.cornerRadius = MenuMetrics.corner
+        glass.layer?.cornerRadius = suggestionsShown ? 9 : MenuMetrics.corner
         glass.layer?.cornerCurve = .continuous
         glass.layer?.masksToBounds = true
-        glass.layer?.borderWidth = 0.5
+        glass.layer?.borderWidth = suggestionsShown ? 0 : 0.5
         glass.layer?.borderColor = MenuMetrics.edge.cgColor
         // Before macOS 26 the material behind the window ignores the layer's
         // corners, and showed square ones; a mask rounds it there too.
-        if #unavailable(macOS 26) { glass.maskImage = Self.rounded(MenuMetrics.corner) }
+        if #unavailable(macOS 26), let effect = glass as? NSVisualEffectView { effect.maskImage = Self.rounded(MenuMetrics.corner) }
         host.frame = glass.bounds
         host.autoresizingMask = [.width, .height]
         glass.addSubview(host)
 
         let panel = Panel(contentRect: NSRect(origin: .zero, size: size), styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
+        if suggestionsShown { panel.identifier = NSUserInterfaceItemIdentifier("tab-address-suggestions") }
         panel.contentView = glass
+        if suggestionsShown { panel.contentMinSize = .zero }
         panel.isOpaque = false
         panel.backgroundColor = .clear
-        panel.hasShadow = true
+        panel.hasShadow = !suggestionsShown
         panel.becomesKeyOnlyIfNeeded = true
         panel.hidesOnDeactivate = true
-        // Under the address, lined up with the tab's own edge — or over it,
-        // for a tab too near the bottom of the screen to have the room. Only
-        // ever beside the field: pushed up onto it, the card covered the
-        // address being edited, and what was typed there with it.
-        let spot = window.convertToScreen(field.convert(field.bounds, to: nil))
-        var origin = NSPoint(x: spot.minX - 12, y: spot.minY - 12 - size.height)
-        var above = false
-        if let screen = window.screen?.visibleFrame {
-            origin.x = min(max(origin.x, screen.minX + 8), screen.maxX - size.width - 8)
-            if origin.y < screen.minY + 8 {
-                above = true
-                origin.y = min(spot.maxY + 12, screen.maxY - size.height - 8)
-            }
-        }
-        panel.setFrameOrigin(origin)
+        position(panel, under: field)
         window.addChildWindow(panel, ordered: .above)
-        // Its size follows the card, keeping the edge nearest the address
-        // where it is.
-        host.onResize = { [weak panel] fitted in
-            guard let panel, fitted.width > 0, fitted.height > 0,
-                  panel.frame.size != fitted else { return }
-            var frame = panel.frame
-            if !above { frame.origin.y += frame.height - fitted.height }
-            frame.size = fitted
-            panel.setFrame(frame, display: true)
+        if suggestionsShown { reveal(panel, under: field, animated: !Motion.reduced) }
+        host.onResize = { [weak panel, weak field] fitted in
+            guard let panel, panel === Self.panel, let field, fitted.width > 0, fitted.height > 0 else { return }
+            let size = NSSize(width: suggestionSurface?.bounds.width ?? fitted.width, height: fitted.height)
+            guard panel.frame.size != size else { return }
+            panel.setContentSize(size)
+            position(panel, under: field)
         }
         self.panel = panel
         resign = NotificationCenter.default.addObserver(forName: NSApplication.didResignActiveNotification, object: nil, queue: .main) { _ in
-            MainActor.assumeIsolated { SiteCardPanel.hide() }
+            MainActor.assumeIsolated {
+                suggestionBrowser?.dismissTabSuggestions()
+                SiteCardPanel.hide()
+            }
         }
+    }
+
+    private static func position(_ panel: NSPanel, under field: NSView) {
+        guard let window = field.window else { return }
+        let surface = panel.identifier?.rawValue == "tab-address-suggestions" ? suggestionSurface : nil
+        let anchor = surface ?? field
+        let spot = window.convertToScreen(anchor.convert(anchor.bounds, to: nil))
+        if let surface, panel.frame.width != surface.bounds.width {
+            panel.setContentSize(NSSize(width: surface.bounds.width, height: panel.frame.height))
+        }
+        let size = panel.frame.size
+        let gap: CGFloat = surface == nil ? 12 : 0
+        var origin = NSPoint(x: spot.minX - (surface == nil ? 12 : 0), y: spot.minY - gap - size.height)
+        if let screen = window.screen?.visibleFrame {
+            origin.x = max(screen.minX + 8, min(origin.x, screen.maxX - size.width - 8))
+            if origin.y < screen.minY + 8 { origin.y = min(spot.maxY + gap, screen.maxY - size.height - 8) }
+        }
+        if let surface {
+            let above = origin.y >= spot.maxY
+            surface.attach(above: above)
+            panel.contentView?.layer?.maskedCorners = above
+                ? [.layerMinXMaxYCorner, .layerMaxXMaxYCorner]
+                : [.layerMinXMinYCorner, .layerMaxXMinYCorner]
+        }
+        panel.setFrameOrigin(origin)
+    }
+
+    /// Uncover the rows from the field's edge without moving the native editor
+    /// or scaling its text. The panel keeps its final hit-testing geometry.
+    static func reveal(_ panel: NSPanel, under field: NSView, animated: Bool) {
+        guard let glass = panel.contentView, let layer = glass.layer else { return }
+        layer.mask = nil
+        layer.removeAnimation(forKey: "suggestions-fade")
+        guard animated, let window = field.window else { return }
+        let spot = window.convertToScreen(field.convert(field.bounds, to: nil))
+        let below = panel.frame.midY < spot.midY
+        let mask = CALayer()
+        mask.backgroundColor = NSColor.black.cgColor
+        mask.bounds = glass.bounds
+        mask.anchorPoint = CGPoint(x: 0.5, y: below ? 1 : 0)
+        mask.position = CGPoint(x: glass.bounds.midX, y: below ? glass.bounds.maxY : glass.bounds.minY)
+        mask.autoresizingMask = [.layerWidthSizable, .layerHeightSizable]
+        layer.mask = mask
+
+        let unfold = CABasicAnimation(keyPath: "transform.scale.y")
+        unfold.fromValue = 0
+        unfold.toValue = 1
+        unfold.duration = 0.30
+        // The same gentle ease-out used for Search's native pane transitions.
+        unfold.timingFunction = CAMediaTimingFunction(controlPoints: 0.22, 1, 0.36, 1)
+        let fade = CABasicAnimation(keyPath: "opacity")
+        fade.fromValue = 0
+        fade.toValue = 1
+        fade.duration = 0.14
+        fade.timingFunction = CAMediaTimingFunction(name: .easeOut)
+        CATransaction.begin()
+        CATransaction.setCompletionBlock { [weak layer] in
+            MainActor.assumeIsolated {
+                guard layer?.mask === mask else { return }
+                layer?.mask = nil
+            }
+        }
+        mask.add(unfold, forKey: "suggestions-unfold")
+        layer.add(fade, forKey: "suggestions-fade")
+        CATransaction.commit()
     }
 
     /// A rounded rectangle that stretches to any size, its corners kept.
@@ -151,9 +244,15 @@ enum SiteCardPanel {
     }
 
     static func hide() {
+        suggestionsShown = false
+        suggestionBrowser = nil
+        suggestionSurface?.attach(above: nil)
+        suggestionSurface = nil
         if let resign { NotificationCenter.default.removeObserver(resign) }
         resign = nil
         guard let panel else { return }
+        panel.contentView?.layer?.mask = nil
+        panel.contentView?.layer?.removeAnimation(forKey: "suggestions-fade")
         panel.parent?.removeChildWindow(panel)
         panel.orderOut(nil)
         self.panel = nil
@@ -606,5 +705,29 @@ enum MenuMetrics {
     static let edge = NSColor(name: nil) { appearance in
         appearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua
             ? NSColor.white.withAlphaComponent(0.18) : NSColor.black.withAlphaComponent(0.26)
+    }
+}
+
+/// The omnibox's rows, beside the address actually being edited.
+private struct TabSuggestions: View {
+    @ObservedObject var browser: Browser
+    let tab: Tab.ID
+    let leadingInset: CGFloat
+
+    var body: some View {
+        VStack(spacing: 0) {
+            ForEach(Array(browser.tabOffers.enumerated()), id: \.element.id) { index, offer in
+                Button { browser.takeTabSuggestion(offer, for: tab) } label: {
+                    Omnibox.Row(offer: offer, picked: browser.tabPicked == index, selectionBackground: Palette.ground, leadingInset: leadingInset)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(offer.key + (offer.title.isEmpty ? "" : ", " + offer.title))
+                .accessibilityAddTraits(browser.tabPicked == index ? .isSelected : [])
+            }
+        }
+        .padding(6)
+        .background(Palette.wash)
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("Address suggestions")
     }
 }
