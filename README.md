@@ -1,12 +1,12 @@
 # Browse
 
-An independent community fork of [Search](https://github.com/driceroland/Search), a small WebKit browser for macOS. This repository is named Browse; the app itself has not been rebranded yet.
+An independent, community-maintained fork of [Search](https://github.com/driceroland/Search), a small WebKit browser for macOS. The app is named Browse and has its own bundle ID, data folder, keychain labels, icon, and GitHub update feed.
 
-> **Fork status:** Builds still identify themselves as Search and use Search's app identifier, data folder, and Office Commun signed update feed. There are no Browse releases or downloads yet. Don't treat a source build as an independent Browse release.
+> **Release status:** The signed release workflow is ready, but Browse downloads are not published until the repository has its own Apple Developer ID certificate and notarization credentials configured (see [Releasing](#releasing)).
 
-![Search, with its tabs down the left and a page taking the rest of the window](.github/screenshot.png)
+![Browse, with its tabs down the left and a page taking the rest of the window](.github/screenshot.png)
 
-The original Search app and its downloads remain at [Office Commun](https://officecommun.com/search). Those downloads are signed and updated by the original project, not by this fork.
+Browse builds on Search's open-source code and keeps the original project linked above. Browse releases and updates are managed from this repository.
 
 ---
 
@@ -24,12 +24,13 @@ It uses **WebKit**, the engine built into macOS, rather than bundling Chromium.
 - **Reading mode.** `⇧⌘R` strips a page down to the article.
 - **Hide anything, for good.** `⇧⌘H`, then click a cookie banner, a newsletter overlay, a rail of "related" nonsense — it goes, and it is still gone on that site next time, before the page has drawn a single frame.
 - **An ad blocker that runs before the page.** Third-party trackers and ad networks are stopped at the network level, so there is nothing to render and nothing to slow down. On by default, off per site if something breaks.
-- **Video that follows you.** `⇧⌘P` lifts the video out of the page into a small window that stays above everything, including other apps.
-- **Passwords, in your keychain.** Search offers to save a sign-in once it has actually worked, and offers your saved accounts, and the Mac's passkeys for the site, under the field when you click it — the way Safari does, never filling anything on its own. Everything lives in the macOS keychain, encrypted by the system, readable only by Search. Bring yours in from Chrome, Arc, Dia, Brave or Edge in one click; nothing leaves the Mac.
+- **Video that follows you.** `⇧⌘P` uses macOS Picture in Picture to lift video out of the page.
+- **Passwords, in your keychain.** Browse offers to save a sign-in once it has actually worked, and offers your saved accounts and the Mac's passkeys for the site under the field when you click it — never filling anything on its own. Passwords live in the macOS keychain under Browse. Bring yours in from Chrome, Arc, Dia, Brave or Edge in one click; nothing leaves the Mac.
 - **Light, dark, or the Mac's own.** The frame and the pages follow.
 - **Bookmarks, history, downloads** — each a panel, each searchable, each one keystroke away.
-- **Chrome extensions, without Chrome.** Paste a Chrome Web Store link in Settings › Extensions, or open the extension's page in Search and press Add. It runs on WebKit's own extension engine — the one Safari uses — and where Chrome has APIs WebKit doesn't (bookmarks, history, downloads, side panel, offscreen documents, fonts, notifications, speech, OAuth sign-in), Search fills them in itself. They live behind the puzzle button; pin the ones you use often. Building your own? Load its folder as an unpacked extension and press Reload after each change, as in Chrome's developer mode. macOS 15.4 or later.
-- **Updates:** the current app code checks at launch and hourly, and accepts updates signed by Office Commun. That feed belongs to Search; Browse does not have its own update service yet.
+- **Chrome extensions, without Chrome.** Paste a Chrome Web Store link in Settings › Extensions, or open the extension's page in Browse and press Add. It runs on WebKit's own extension engine — the one Safari uses — and where Chrome has APIs WebKit doesn't (bookmarks, history, downloads, side panel, offscreen documents, fonts, notifications, speech), Browse fills them in itself. They live behind the puzzle button; pin the ones you use often. Building your own? Load its folder as an unpacked extension and press Reload after each change, as in Chrome's developer mode. macOS 15.4 or later.
+- **In-tab history.** Type in the address field to find pages from your history and open tabs, then choose a result without leaving the current tab.
+- **Updates:** signed Browse releases check at launch and hourly. The updater verifies the appcast signature, archive checksum, app identifier, and Developer ID before replacing the app.
 
 ## What it doesn't do
 
@@ -37,18 +38,19 @@ On purpose:
 
 - No extension you have to install to feel at home. Blocking ads, hiding clutter, reading mode, picture-in-picture and passwords are built in; extensions are there for everything else.
 - No sync, no account, no cloud. Your tabs, history and passwords are on your Mac and nowhere else.
-- No telemetry, no analytics, no crash reports sent anywhere. The current Search updater also contacts the upstream update feed.
+- No telemetry, no analytics, no crash reports sent anywhere.
 - Multiple windows, each with its own tabs and space.
 
 ## Privacy, concretely
 
 | What | Where it is | Who can read it |
 |---|---|---|
-| Passwords | The macOS login keychain, as ordinary keychain items tagged `Search` | Search, signed by Office Commun. Any other app triggers the system's permission dialog. |
-| History, bookmarks, open tabs, hidden elements | Small JSON files in `~/Library/Application Support/Search/` | You. |
+| Passwords | The macOS login keychain, as ordinary keychain items tagged `Browse` | Browse; macOS controls app access and may ask you to approve it. |
+| History, bookmarks, open tabs, hidden elements | Small JSON files in `~/Library/Application Support/Browse/` | You. |
 | Cookies and site data | WebKit's own store for the app | The sites that set them, as in any browser. |
-| Extensions | Unpacked in `~/Library/Application Support/Search/Extensions/`, their data in WebKit's extension store | Each extension, within the permissions you accepted when adding it. |
-| Anything else | Nowhere. There is no server. | — |
+| Extensions | Unpacked in `~/Library/Application Support/Browse/Extensions/`, their data in WebKit's extension store | Each extension, within the permissions you accepted when adding it. |
+| Update checks | Signed appcast and release archives on this repository's GitHub Releases | GitHub receives the request; Browse sends no profile or browsing data. |
+| Anything else | No account, sync, analytics or telemetry | — |
 
 A **private tab** (`⇧⌘N`) has its own cookie jar and leaves nothing behind when it closes.
 
@@ -80,13 +82,21 @@ So anyone can read exactly what a browser handling their passwords and history i
 
 - macOS 14 or later, Xcode 16 / Swift 6 toolchain
 - `swift build` — builds the command-line executable; `swift run` launches it
-- `./build.sh` — assembles a real, double-clickable `Search.app` in `build/`, ad-hoc signed so it runs on your own Mac
+- `./build.sh` — assembles a double-clickable `Browse.app` in `build/`, ad-hoc signed so it runs on your own Mac
 
-These commands still produce Search, using Search's existing bundle identifier and data location. This fork needs its own app identity and signed update feed before it can ship Browse builds safely.
+`swift build` and `swift run` still refer to the internal SwiftPM product named Search. `./build.sh` wraps it as Browse with the separate bundle ID `com.bryanzaneee.browse` and stores its files under `~/Library/Application Support/Browse/`. It does not import, rename, or modify an existing Search profile.
 
-A build you make yourself won't be notarized or carry Office Commun's Developer ID, so the first launch needs a right-click → Open (or an allow in System Settings → Privacy & Security). That's expected — it's the same thing that happens with any app that isn't from the App Store or a notarized DMG. Your own build also keeps its passwords apart from a signed Search's: the keychain tells the two apart by their signatures.
+A local build is ad-hoc signed, so macOS may require right-click → Open the first time. It does not check for or install updates. `./build.sh release dmg` creates archives for local inspection; `./build.sh release ship` signs and notarizes both archives, staples the DMG, and creates the signed update feed.
 
-`./build.sh release dmg` also makes `Search.dmg` / `Search.zip`. `./build.sh release ship` additionally notarizes and staples — that step needs a Developer ID certificate and Apple credentials, so it only really does anything for Office Commun's own releases.
+### Releasing
+
+Push a tag matching `VERSION` (for example, set `VERSION` to `1.0.6`, then push `v1.0.6`) to run `.github/workflows/release.yml`. It builds and notarizes Apple Silicon and Intel apps, signs separate update feeds, and attaches the downloads to a GitHub release. Configure these repository Actions secrets first:
+
+- `BROWSE_DEVELOPER_ID_P12`: base64-encoded Developer ID Application certificate in PKCS#12 format.
+- `BROWSE_CERTIFICATE_PASSWORD`: password for that certificate.
+- `BROWSE_NOTARY_APPLE_ID`, `BROWSE_NOTARY_PASSWORD`, `BROWSE_NOTARY_TEAM_ID`: Apple notarytool credentials for the same Developer team.
+
+The updater learns the trusted Team ID from the installed signed app, so every release must use the same Developer ID team. An unsigned local build has no updater identity. Passkeys, the local AI engine, and OpenRouter sign-in remain disabled for Browse until their entitlements, signed engine release, and OAuth callback setup are ready.
 
 ### How it's put together
 
@@ -95,12 +105,12 @@ A build you make yourself won't be notarized or carry Office Commun's Developer 
 - The ad blocker is a `WKContentRuleList` compiled once at launch and enforced inside WebKit's networking, before a request is made — zero cost at run time, unlike a JavaScript blocker.
 - Hidden elements are a per-site list of selectors injected as a stylesheet at document start, so nothing is ever seen appearing and vanishing.
 - Every colour is a light/dark pair in `Design.swift`, resolved by the window's appearance; nothing else in the code knows which mode it is in.
-- Extensions run on `WKWebExtension` (macOS 15.4+). `Crx.swift` fetches an extension from the Chrome Web Store's public update address and checks the CRX3 signature against the extension's id before anything is unpacked. `Extensions.swift` is the browser's side of WebKit's contract — tabs, the window, permissions, popups. `ExtensionShims.swift` adds, at install, a small script to the extension's worker, pages and content scripts: it defines the Chrome APIs WebKit lacks — `userScripts`, `privacy`, `browsingData`, `sessions`, the old FileSystem API and more — as calls answered natively by Search, and mends the places where WebKit behaves differently from Chrome: replies from pages that don't answer, listeners added after a worker starts, workers WebKit loses track of, members and constants it leaves out. Extension pages are served from `chrome-extension://<id>/`, the address they have in Chrome, so servers and sites recognise them. `./bench ext-*` drives all of it from the shell against a test run. `ExtensionNative.swift` speaks Chrome's native messaging to hosts registered in Chrome's `NativeMessagingHosts` folders.
+- Extensions run on `WKWebExtension` (macOS 15.4+). `Crx.swift` fetches an extension from the Chrome Web Store's public update address and checks the CRX3 signature against the extension's id before anything is unpacked. `Extensions.swift` is the browser's side of WebKit's contract — tabs, the window, permissions, popups. `ExtensionShims.swift` adds, at install, a small script to the extension's worker, pages and content scripts: it defines the Chrome APIs WebKit lacks — `userScripts`, `privacy`, `browsingData`, `sessions`, the old FileSystem API and more — as calls answered natively by Browse, and mends the places where WebKit behaves differently from Chrome: replies from pages that don't answer, listeners added after a worker starts, workers WebKit loses track of, members and constants it leaves out. Extension pages are served from `chrome-extension://<id>/`, the address they have in Chrome, so servers and sites recognise them. `./bench ext-*` drives all of it from the shell against a test run. `ExtensionNative.swift` speaks Chrome's native messaging to hosts registered in Chrome's `NativeMessagingHosts` folders.
 - `Sources/Search/` is one file per concern: `Vault.swift` is the keychain, `Shield.swift` the ad blocker, `Curtain.swift` the hidden elements, `Session.swift` what comes back at launch, `Updater.swift` the update, `Bench.swift` the test socket, and so on. There's no framework of its own to learn first.
 
 ### Testing it without closing it
 
-Turn on **Settings › General › Let a script drive Search** and the running app listens on a Unix socket in its own folder (readable by your user only). `./bench` at the root of the repository speaks it:
+Turn on **Settings › General › Let a script drive Browse** and the running app listens on a Unix socket in its own folder (readable by your user only). `./bench` at the root of the repository speaks it:
 
 ```
 ./bench open https://example.com     # a tab of its own, at the end of your row, marked with a flask
@@ -122,4 +132,4 @@ Issues and pull requests are genuinely welcome — see [CONTRIBUTING.md](CONTRIB
 
 ### License
 
-MIT — see [LICENSE](LICENSE). The license covers the source code. Search's name and icon belong to Office Commun; this fork's repository name does not grant rights to those marks.
+MIT — see [LICENSE](LICENSE). The source license does not transfer Search's name or original icon; Browse uses its own app name and icon.

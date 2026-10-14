@@ -4,39 +4,34 @@
 # fetches.
 #
 #   ./build.sh                 debug-free release build, ad-hoc signed: runs here
-#   ./build.sh release dmg     + build/Search.dmg, build/Search.zip and
-#                                build/appcast.json, signed with Developer ID
+#   ./build.sh release dmg     + a Browse DMG, ZIP and appcast, signed with Developer ID
 #                                if there is one in the keychain
 #   ./build.sh release ship    + both notarised, the DMG stapled
 #
-#   SEARCH_ARCH=x86_64 ./build.sh release ship
+#   BROWSE_ARCH=x86_64 ./build.sh release ship
 #                              the same for Intel Macs, into build/intel/
 #
 # Same shape as the one next door: SwiftPM builds the executable, and a macOS
 # app bundle is just a folder with a plist and the binary in the right place.
 #
-# The three files keep the same names from release to release, so the site
-# links to them once and the updater reads one address forever. ./publish.sh
-# copies them into the site.
+# Release assets are attached to GitHub; the updater reads the latest signed
+# appcast for its architecture.
 #
 # Two builds from 1.0.5, each for one kind of Mac: Apple Silicon, in build/,
-# and Intel, in build/intel/, served from the site's search/intel/ folder
-# with an appcast of its own. A single universal app would have weighed
+# and Intel, in build/intel/, each with its own appcast. A single universal app would have weighed
 # twice as much for everyone (10.9 MB of binary instead of 5.4). The app's
 # updater reads the feed for the chip it was built for (Updater.feed).
-# SEARCH_ARCH picks the chip; without it, the Mac's own.
+# BROWSE_ARCH picks the chip; without it, the Mac's own.
 #
 # "dmg" lays the disk image's window out with dmgbuild, installed into .build
 # on first use (Python 3 and a network, once).
 #
 # What "ship" needs, once:
 #   - a Developer ID Application certificate in the login keychain
-#     (SEARCH_SIGN_IDENTITY names it; otherwise the first one found is used)
-#   - a notarytool profile: xcrun notarytool store-credentials "search"
-#     (SEARCH_NOTARY_PROFILE names it; default "search")
-#   - SEARCH_DOWNLOAD_URL, the https folder the three files are served from,
-#     for the appcast. Default https://officecommun.com/search, which is
-#     where Updater.feed in Updater.swift looks.
+#     (BROWSE_SIGN_IDENTITY names it; otherwise the first one found is used)
+#   - a notarytool profile: xcrun notarytool store-credentials "browse"
+#     (BROWSE_NOTARY_PROFILE names it; default "browse")
+#   - BROWSE_DOWNLOAD_URL, the GitHub release URL used in the appcast.
 #
 # NOTES.md, next to this script, is what's new: newest release first, one
 # paragraph each. The first paragraph goes into the appcast, and from there
@@ -46,14 +41,14 @@ set -euo pipefail
 cd "$(dirname "$0")"
 CONFIG="${1:-release}"
 STEP="${2:-app}"
-ARCH="${SEARCH_ARCH:-$(uname -m)}"
+ARCH="${BROWSE_ARCH:-$(uname -m)}"
 case "$ARCH" in
-  arm64) OUT="build"; SUBFOLDER="" ;;
-  x86_64) OUT="build/intel"; SUBFOLDER="/intel" ;;
-  *) echo "SEARCH_ARCH is arm64 or x86_64, not “$ARCH”" >&2; exit 1 ;;
+  arm64) OUT="build"; SUFFIX="" ;;
+  x86_64) OUT="build/intel"; SUFFIX="-Intel" ;;
+  *) echo "BROWSE_ARCH is arm64 or x86_64, not “$ARCH”" >&2; exit 1 ;;
 esac
-APP="$OUT/Search.app"
-NAME="Search"
+APP="$OUT/Browse.app"
+NAME="Browse"
 VERSION="$(tr -d '[:space:]' < VERSION)"
 # A build number that only ever goes up, so the updater can tell newer from
 # older without parsing version strings.
@@ -76,14 +71,14 @@ mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 cp "$BINARY" "$APP/Contents/MacOS/$NAME"
 # The AppleScript dictionary (Scripting.swift): read-only, tabs' addresses
 # and titles. The plist below points to it.
-cp Search.sdef "$APP/Contents/Resources/"
+cp Browse.sdef "$APP/Contents/Resources/"
 
 # Symbols stay out of the app. The linker leaves every function's name and a
 # map back to the source in the binary — 15,000 entries, more than half of
 # what the app weighed (6.5 MB of binary, 2.7 without them), and nothing the
 # app reads while it runs. They are kept beside the build instead, as a dSYM
 # that turns the addresses in a crash report back into names (Console, or
-# atos -o build/Search.app.dSYM/Contents/Resources/DWARF/Search).
+# atos -o build/Browse.app.dSYM/Contents/Resources/DWARF/Search).
 if [ "$CONFIG" = "release" ]; then
   rm -rf "$APP.dSYM"
   dsymutil "$BINARY" -o "$APP.dSYM" 2>/dev/null || echo "no dSYM this time" >&2
@@ -134,7 +129,7 @@ cat > "$APP/Contents/Info.plist" <<PLIST
   <key>CFBundleName</key><string>$NAME</string>
   <key>CFBundleDisplayName</key><string>$NAME</string>
   <key>CFBundleExecutable</key><string>$NAME</string>
-  <key>CFBundleIdentifier</key><string>com.officecommun.search</string>
+  <key>CFBundleIdentifier</key><string>com.bryanzaneee.browse</string>
   <key>CFBundlePackageType</key><string>APPL</string>
   <key>CFBundleShortVersionString</key><string>$VERSION</string>
   <key>CFBundleVersion</key><string>$BUILD</string>
@@ -142,10 +137,10 @@ cat > "$APP/Contents/Info.plist" <<PLIST
   $ICONNAME
   <key>LSMinimumSystemVersion</key><string>$MINIMUM</string>
   <key>LSApplicationCategoryType</key><string>public.app-category.productivity</string>
-  <key>NSHumanReadableCopyright</key><string>© Office Commun · Search</string>
+  <key>NSHumanReadableCopyright</key><string>© Browse contributors</string>
   <key>NSHighResolutionCapable</key><true/>
   <key>NSAppleScriptEnabled</key><true/>
-  <key>OSAScriptingDefinition</key><string>Search.sdef</string>
+  <key>OSAScriptingDefinition</key><string>Browse.sdef</string>
   <!-- Owning http and https is what sends a link clicked in Mail here.
        Appearing in Desktop & Dock → Default web browser also needs the
        XHTML document type below. -->
@@ -183,11 +178,11 @@ cat > "$APP/Contents/Info.plist" <<PLIST
        still wants a sentence to put in its own prompt, and touching the APIs
        without one is a crash rather than a refusal. -->
   <key>NSCameraUsageDescription</key>
-  <string>Websites you visit can ask to use your camera. Search asks you the first time each site does and keeps your answer; Settings › Privacy forgets them.</string>
+  <string>Websites you visit can ask to use your camera. Browse asks you the first time each site does and keeps your answer; Settings › Privacy forgets them.</string>
   <key>NSMicrophoneUsageDescription</key>
-  <string>Websites you visit can ask to use your microphone. Search asks you the first time each site does and keeps your answer; Settings › Privacy forgets them.</string>
+  <string>Websites you visit can ask to use your microphone. Browse asks you the first time each site does and keeps your answer; Settings › Privacy forgets them.</string>
   <key>NSLocationUsageDescription</key>
-  <string>Websites you visit can ask for your location. Search asks you each time a site does, unless you choose Always allow for it; Settings › Privacy forgets those choices.</string>
+  <string>Websites you visit can ask for your location. Browse asks you each time a site does, unless you choose Always allow for it; Settings › Privacy forgets those choices.</string>
   <key>NSDownloadsFolderUsageDescription</key>
   <string>Files you download are saved to your Downloads folder.</string>
 </dict>
@@ -198,16 +193,17 @@ PLIST
 # runtime Gatekeeper insists on for anything notarised; otherwise ad-hoc,
 # which is enough for the app to run on the machine that built it — and
 # which the updater refuses to swap anything in under.
-IDENTITY="${SEARCH_SIGN_IDENTITY:-$(security find-identity -v -p codesigning 2>/dev/null \
+IDENTITY="${BROWSE_SIGN_IDENTITY:-$(security find-identity -v -p codesigning 2>/dev/null \
   | grep -o '"Developer ID Application: [^"]*"' | head -1 | tr -d '"' || true)}"
 # Passkeys need an entitlement Apple grants to browsers on request, and a
 # Developer ID provisioning profile that carries it. With the profile next to
 # this script, both go in; without it, the app is signed as before, because
 # a restricted entitlement with no profile behind it is an app that won't open.
-ENTITLEMENTS="Search.entitlements"
-if [ -f "Search.provisionprofile" ]; then
-  cp "Search.provisionprofile" "$APP/Contents/embedded.provisionprofile"
-  ENTITLEMENTS="Search.passkeys.entitlements"
+ENTITLEMENTS="Browse.entitlements"
+if [ -f "Browse.provisionprofile" ]; then
+  [ -f "Browse.passkeys.entitlements" ] || { echo "Browse.provisionprofile needs a matching Browse.passkeys.entitlements file" >&2; exit 1; }
+  cp "Browse.provisionprofile" "$APP/Contents/embedded.provisionprofile"
+  ENTITLEMENTS="Browse.passkeys.entitlements"
   echo "passkeys: profile embedded"
 fi
 if [ -n "$IDENTITY" ]; then
@@ -232,7 +228,7 @@ echo "built: $APP ($VERSION, $ARCH, build $BUILD)"
 # layout file itself, so no Finder is scripted and no window opens mid-build.
 # dmgbuild is installed into .build the first time, and needs Python 3 and a
 # network then; without it the image is the plain one it always was.
-DMG="$OUT/$NAME.dmg"
+DMG="$OUT/$NAME$SUFFIX.dmg"
 ART="build/installer"
 rm -rf "$ART" "$DMG"
 DMGBUILD=".build/dmgbuild/bin/dmgbuild"
@@ -262,7 +258,7 @@ echo "packed: $DMG"
 
 # The ZIP is what the updater fetches, and its hash is what the updater
 # checks before opening it.
-ZIP="$OUT/$NAME.zip"
+ZIP="$OUT/$NAME$SUFFIX.zip"
 rm -f "$ZIP"
 ditto -c -k --keepParent "$APP" "$ZIP"
 SHA="$(shasum -a 256 "$ZIP" | cut -d' ' -f1)"
@@ -272,64 +268,40 @@ echo "packed: $ZIP"
 # characters JSON minds escaped, is the line under the version in Settings.
 # Written last — after notarisation has stapled its ticket to the DMG, which
 # changes it — so the DMG's hash is the one people download.
-BASE="${SEARCH_DOWNLOAD_URL:-https://officecommun.com/search}"
-BASE="${BASE%/}$SUBFOLDER"
+BASE="${BROWSE_DOWNLOAD_URL:-https://github.com/BryanZaneee/Browse/releases/download/v$VERSION}"
+BASE="${BASE%/}"
 NOTES=""
 if [ -f NOTES.md ]; then
   NOTES="$(awk 'NF { printf "%s%s", (n++ ? " " : ""), $0; next } n { exit }' NOTES.md \
     | sed -e 's/\\/\\\\/g' -e 's/"/\\"/g')"
 fi
-# The AI add-on's engine (engine.sh), when this release offers one: Apple
-# Silicon only for now. SEARCH_AI_ENGINE_VERSION names it — a number that
-# only goes up, as Search never takes a lower one — and the signed,
-# notarised binary in build/engine/ goes beside the other files, under ai/,
-# with its hash and size in the feed. The feed's own signature is what
-# vouches for them; Search then checks the engine's signature itself.
-AIBLOCK=""
-write_engine() {
-  local ENGINE="build/engine/search-ai-engine-arm64"
-  [ "$ARCH" = "arm64" ] && [ -n "${SEARCH_AI_ENGINE_VERSION:-}" ] || return 0
-  [[ "$SEARCH_AI_ENGINE_VERSION" =~ ^[0-9]+$ ]] || { echo "SEARCH_AI_ENGINE_VERSION is a whole number" >&2; exit 1; }
-  [ -f "$ENGINE" ] || { echo "$ENGINE is missing — ./engine.sh arm64 makes it" >&2; exit 1; }
-  codesign --verify --strict -R='anchor apple generic and identifier "com.officecommun.search.ai-engine" and certificate leaf[subject.OU] = "7BYKA895MC"' "$ENGINE" \
-    || { echo "$ENGINE isn't signed with the Developer ID as com.officecommun.search.ai-engine" >&2; exit 1; }
-  local FILE="search-ai-engine-arm64-$SEARCH_AI_ENGINE_VERSION"
-  mkdir -p "$OUT/ai"
-  cp "$ENGINE" "$OUT/ai/$FILE"
-  AIBLOCK=",
-  \"ai\": {\"engine\": {\"version\": $SEARCH_AI_ENGINE_VERSION, \"url\": \"$BASE/ai/$FILE\", \"sha256\": \"$(shasum -a 256 "$ENGINE" | cut -d' ' -f1)\", \"size\": $(stat -f%z "$ENGINE")}}"
-  echo "engine: $OUT/ai/$FILE"
-}
 write_appcast() {
   local DMGSHA
   DMGSHA="$(shasum -a 256 "$DMG" | cut -d' ' -f1)"
-  write_engine
-  cat > "$OUT/appcast.json" <<JSON
+  cat > "$OUT/appcast$SUFFIX.json" <<JSON
 {
   "version": "$VERSION",
   "build": $BUILD,
-  "url": "$BASE/$NAME.zip",
-  "dmg": "$BASE/$NAME.dmg",
+  "url": "$BASE/$NAME$SUFFIX.zip",
+  "dmg": "$BASE/$NAME$SUFFIX.dmg",
   "sha256": "$SHA",
   "dmgSha256": "$DMGSHA",
   "notes": "$NOTES",
-  "minimumSystemVersion": "$MINIMUM"$AIBLOCK
+  "minimumSystemVersion": "$MINIMUM"
 }
 JSON
-  echo "wrote: $OUT/appcast.json ($VERSION, $ARCH, build $BUILD)"
-  # The same file, signed with the Developer ID that signs the app (codesign
-  # keeps the signature in the file's extended attributes, ditto carries them
-  # in the ZIP). Builds from 1.0.4 read only this one; older ones read the
-  # plain file beside it. No key of its own to keep, or to lose.
-  rm -f "$OUT/appcast.json.zip"
+  echo "wrote: $OUT/appcast$SUFFIX.json ($VERSION, $ARCH, build $BUILD)"
+  # Sign the appcast with the same Developer ID as the app; ditto carries its
+  # code signature in the ZIP the updater downloads.
+  rm -f "$OUT/appcast$SUFFIX.json.zip"
   if [ -n "$IDENTITY" ]; then
     local SIGNED
     SIGNED="$(mktemp -d)"
-    cp "$OUT/appcast.json" "$SIGNED/appcast.json"
-    codesign --force --timestamp --sign "$IDENTITY" --identifier com.officecommun.search.appcast "$SIGNED/appcast.json"
-    ditto -c -k --sequesterRsrc "$SIGNED/appcast.json" "$OUT/appcast.json.zip"
+    cp "$OUT/appcast$SUFFIX.json" "$SIGNED/appcast.json"
+    codesign --force --timestamp --sign "$IDENTITY" --identifier com.bryanzaneee.browse.appcast "$SIGNED/appcast.json"
+    ditto -c -k --sequesterRsrc "$SIGNED/appcast.json" "$OUT/appcast$SUFFIX.json.zip"
     rm -rf "$SIGNED"
-    echo "signed: $OUT/appcast.json.zip"
+    echo "signed: $OUT/appcast$SUFFIX.json.zip"
   fi
 }
 if [ "$STEP" = "dmg" ]; then write_appcast; exit 0; fi
@@ -339,8 +311,8 @@ if [ "$STEP" = "dmg" ]; then write_appcast; exit 0; fi
 # is fetched by an app that already trusts it, and is left as hashed.
 [ -z "$IDENTITY" ] && { echo "can't ship without a Developer ID certificate" >&2; exit 1; }
 for FILE in "$DMG" "$ZIP"; do
-  xcrun notarytool submit "$FILE" --keychain-profile "${SEARCH_NOTARY_PROFILE:-search}" --wait
+  xcrun notarytool submit "$FILE" --keychain-profile "${BROWSE_NOTARY_PROFILE:-browse}" --wait
 done
 xcrun stapler staple "$DMG"
 write_appcast
-echo "shipped: $DMG, $ZIP, $OUT/appcast.json and its signed ZIP — ./publish.sh <folder> puts them on the site"
+echo "shipped: $DMG, $ZIP, $OUT/appcast$SUFFIX.json and its signed ZIP"

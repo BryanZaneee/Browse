@@ -63,7 +63,7 @@ struct WelcomePanel: View {
         VStack(spacing: 22) {
             Plate(size: 72)
             VStack(spacing: 10) {
-                Text("Search")
+                Text("Browse")
                     .font(.system(size: 34, weight: .medium))
                     .foregroundStyle(Palette.ink)
                 Text("A browser with nothing in the way. Four megabytes, the engine already in your Mac, and as little around the page as we could manage.")
@@ -120,7 +120,7 @@ struct WelcomePanel: View {
                 .animation(Motion.settle, value: brought)
             }
 
-            // Safari, a browser on another Mac, one Search can't read: what
+            // Safari, a browser on another Mac, one Browse can't read: what
             // it exported, bookmarks, passwords or Safari's own ZIP.
             Pill("From a file another browser exported…") { browser.importFile() }
         }
@@ -154,12 +154,12 @@ struct WelcomePanel: View {
                     HStack(spacing: 8) {
                         Image(systemName: "checkmark")
                             .font(.system(size: 11, weight: .medium))
-                        Text("Search is the default browser")
+                        Text("Browse is the default browser")
                     }
                     .font(.system(size: 13))
                     .foregroundStyle(Palette.ink)
                 } else {
-                    Big("Make Search the default", filled: true) {
+                    Big("Make Browse the default", filled: true) {
                         asked = true
                         Links.becomeDefault { _ in isDefault = Links.isDefault }
                     }
@@ -297,10 +297,23 @@ struct WelcomePanel: View {
     private struct Plate: View {
         let size: CGFloat
         var body: some View {
-            Logomark()
-                .fill(Palette.ink, style: FillStyle(eoFill: true))
-                .aspectRatio(Logomark.canvas.width / Logomark.canvas.height, contentMode: .fit)
-                .frame(height: size * 0.56)
+            VStack(spacing: 5) {
+                HStack(spacing: 4) {
+                    ForEach(0..<3) { _ in Circle().frame(width: 4, height: 4) }
+                    Spacer(minLength: 0)
+                }
+                .foregroundStyle(Palette.muted)
+                Rectangle().fill(Palette.hairline).frame(height: 1)
+                ForEach([0.88, 0.66, 0.78], id: \.self) { width in
+                    Capsule().fill(Palette.ink.opacity(0.72)).frame(width: size * CGFloat(width), height: 3)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                Spacer(minLength: 0)
+            }
+            .padding(8)
+            .frame(width: size * 1.2, height: size * 0.56)
+            .background(Palette.wash, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous).stroke(Palette.hairline, lineWidth: 1))
         }
     }
 

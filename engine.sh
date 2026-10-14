@@ -9,7 +9,7 @@
 # against it, built static with nothing that reaches the network compiled
 # in, linked with the helper, stripped, and signed with the hardened runtime
 # and the App Sandbox (Engine/engine.entitlements) — the Developer ID when
-# there is one (SEARCH_SIGN_IDENTITY, or the first found; "-" for none), ad-hoc otherwise,
+# there is one (BROWSE_SIGN_IDENTITY, or the first found; "-" for none), ad-hoc otherwise,
 # which Search accepts only in a test run. Everything goes to build/engine/.
 # Notarizing and publishing are the release's, not this script's.
 set -euo pipefail
@@ -19,7 +19,7 @@ LLAMA_TAG="v0.5.0"
 LLAMA_COMMIT="7fe450e19305b828c199d602c23a8337aaa1f03b"
 OUT="build/engine"
 SRC="$OUT/llama.cpp"
-IDENTIFIER="com.officecommun.search.ai-engine"
+IDENTIFIER="com.bryanzaneee.browse.ai-engine"
 JOBS=$(sysctl -n hw.logicalcpu)
 which="${1:-all}"
 
@@ -46,7 +46,7 @@ COMMON=(
   -DLLAMA_BUILD_COMMON=OFF -DLLAMA_BUILD_TOOLS=OFF -DLLAMA_BUILD_SERVER=OFF
 )
 
-IDENTITY="${SEARCH_SIGN_IDENTITY:-$(security find-identity -v -p codesigning 2>/dev/null \
+IDENTITY="${BROWSE_SIGN_IDENTITY:-$(security find-identity -v -p codesigning 2>/dev/null \
   | grep -o '"Developer ID Application: [^"]*"' | head -1 | tr -d '"' || true)}"
 
 build() {

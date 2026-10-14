@@ -120,8 +120,8 @@ struct LittleView: View {
                     .lineLimit(1)
                 Spacer(minLength: 0)
                 if let keep {
-                    Pill("Open in Search", action: keep)
-                        .help("Open in Search   ⌘O")
+                    Pill("Open in Browse", action: keep)
+                        .help("Open in Browse   ⌘O")
                 } else {
                     Spacer().frame(width: 64)
                 }

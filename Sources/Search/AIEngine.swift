@@ -53,7 +53,7 @@ final class AIEngine: ObservableObject {
     }
     @Published var offered: Offer?
 
-    nonisolated static let identifier = "com.officecommun.search.ai-engine"
+    nonisolated static let identifier = "com.bryanzaneee.browse.ai-engine"
 
     enum State: Equatable {
         case absent
@@ -202,19 +202,19 @@ final class AIEngine: ObservableObject {
 
     // MARK: - checking
 
-    /// The engine is Office Commun's, for its own identifier, signed the way
+    /// The engine is Browse's, for its own identifier, signed the way
     /// a release is — or, in a test run, at least its identifier — and it is
     /// sandboxed with nothing added: no network, no file access, no way out.
     nonisolated static func trusted(_ file: URL) -> Bool {
         var code: SecStaticCode?
         guard SecStaticCodeCreateWithPath(file as CFURL, [], &code) == errSecSuccess, let code else { return false }
-        let requirement: SecRequirement?
+        var requirement: SecRequirement?
         if Store.testing {
             var made: SecRequirement?
             SecRequirementCreateWithString("identifier \"\(identifier)\"" as CFString, [], &made)
             requirement = made
         } else {
-            requirement = Updater.developerID(team: Updater.team, identifier: identifier)
+            if let team = Updater.team { requirement = Updater.developerID(team: team, identifier: identifier) }
         }
         guard let requirement else { return false }
         let strict = SecCSFlags(rawValue: kSecCSStrictValidate | kSecCSCheckAllArchitectures)
@@ -392,7 +392,7 @@ final class AIEngine: ObservableObject {
         if Store.testing {
             SecRequirementCreateWithString("identifier \"\(identifier)\"" as CFString, [], &requirement)
         } else {
-            requirement = Updater.developerID(team: Updater.team, identifier: identifier)
+            if let team = Updater.team { requirement = Updater.developerID(team: team, identifier: identifier) }
         }
         guard let requirement, SecCodeCheckValidity(code, [], requirement) == errSecSuccess else { return false }
         var staticCode: SecStaticCode?

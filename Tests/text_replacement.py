@@ -30,14 +30,14 @@ from http.server import ThreadingHTTPServer, BaseHTTPRequestHandler
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-BUILT = ROOT / "build" / "Search.app"
+BUILT = ROOT / "build" / "Browse.app"
 HOME = os.path.expanduser("~")
-ID = "com.officecommun.search.textcheck"
+ID = "com.bryanzaneee.browse.textcheck"
 W = f"tr-{hashlib.sha1(str(ROOT).encode()).hexdigest()[:8]}"
-SUPPORT = f"{HOME}/Library/Application Support/Search ({W})"
-SUITE = f"com.officecommun.search.test.{W}"
+SUPPORT = f"{HOME}/Library/Application Support/Browse ({W})"
+SUITE = f"com.bryanzaneee.browse.test.{W}"
 SOCK = f"{SUPPORT}/bench.sock"
-COPY = Path(tempfile.mkdtemp(prefix="tr-probe-")) / "Search.app"
+COPY = Path(tempfile.mkdtemp(prefix="tr-probe-")) / "Browse.app"
 EXE = str(COPY / "Contents" / "MacOS" / "Search")
 
 PAGE = b"""<!doctype html><title>typing</title>
@@ -84,7 +84,7 @@ def make_copy():
     plist = str(COPY / "Contents" / "Info.plist")
     subprocess.run(["plutil", "-replace", "CFBundleIdentifier", "-string", ID, plist], check=True)
     (COPY / "Contents" / "embedded.provisionprofile").unlink(missing_ok=True)
-    subprocess.run(["codesign", "--force", "--deep", "-s", "-", "--entitlements", str(ROOT / "Search.entitlements"), str(COPY)],
+    subprocess.run(["codesign", "--force", "--deep", "-s", "-", "--entitlements", str(ROOT / "Browse.entitlements"), str(COPY)],
                    check=True, capture_output=True)
 
 def cmd(req):

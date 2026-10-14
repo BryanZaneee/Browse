@@ -1,0 +1,69 @@
+name: Release Browse
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check release tag
+        run: test "${GITHUB_REF_NAME}" = "v$(tr -d '[:space:]' < VERSION)"
+
+      - name: Import Developer ID certificate
+        env:
+          BROWSE_DEVELOPER_ID_P12: ${{ secrets.BROWSE_DEVELOPER_ID_P12 }}
+          BROWSE_CERTIFICATE_PASSWORD: ${{ secrets.BROWSE_CERTIFICATE_PASSWORD }}
+        run: |
+          test -n "$BROWSE_DEVELOPER_ID_P12"
+          test -n "$BROWSE_CERTIFICATE_PASSWORD"
+          KEYCHAIN="$RUNNER_TEMP/browse.keychain-db"
+          KEYCHAIN_PASSWORD="$(openssl rand -hex 20)"
+          printf '%s' "$BROWSE_DEVELOPER_ID_P12" | base64 -D > "$RUNNER_TEMP/browse.p12"
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
+          security import "$RUNNER_TEMP/browse.p12" -P "$BROWSE_CERTIFICATE_PASSWORD" -A -t cert -f pkcs12 -k "$KEYCHAIN"
+          security set-key-partition-list -S apple-tool:,apple: -s -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
+          security list-keychains -d user -s "$KEYCHAIN"
+          rm "$RUNNER_TEMP/browse.p12"
+
+      - name: Configure notarization
+        env:
+          BROWSE_NOTARY_APPLE_ID: ${{ secrets.BROWSE_NOTARY_APPLE_ID }}
+          BROWSE_NOTARY_PASSWORD: ${{ secrets.BROWSE_NOTARY_PASSWORD }}
+          BROWSE_NOTARY_TEAM_ID: ${{ secrets.BROWSE_NOTARY_TEAM_ID }}
+        run: |
+          test -n "$BROWSE_NOTARY_APPLE_ID"
+          test -n "$BROWSE_NOTARY_PASSWORD"
+          test -n "$BROWSE_NOTARY_TEAM_ID"
+          xcrun notarytool store-credentials browse --apple-id "$BROWSE_NOTARY_APPLE_ID" \
+            --password "$BROWSE_NOTARY_PASSWORD" --team-id "$BROWSE_NOTARY_TEAM_ID"
+
+      - name: Build and notarize Apple Silicon release
+        env:
+          BROWSE_DOWNLOAD_URL: https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}
+        run: ./build.sh release ship
+
+      - name: Build and notarize Intel release
+        env:
+          BROWSE_ARCH: x86_64
+          BROWSE_DOWNLOAD_URL: https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}
+        run: ./build.sh release ship
+
+      - name: Publish release assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          sed -n '1p' NOTES.md > "$RUNNER_TEMP/browse-release-notes.md"
+          gh release create "$GITHUB_REF_NAME" \
+            build/Browse.dmg build/Browse.zip build/appcast.json.zip \
+            build/intel/Browse-Intel.dmg build/intel/Browse-Intel.zip build/intel/appcast-Intel.json.zip \
+            --repo "$GITHUB_REPOSITORY" --title "Browse $(tr -d '[:space:]' < VERSION)" \
+            --notes-file "$RUNNER_TEMP/browse-release-notes.md"

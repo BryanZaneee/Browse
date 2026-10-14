@@ -26,7 +26,7 @@ from pathlib import Path
 
 from http.server import ThreadingHTTPServer, BaseHTTPRequestHandler
 ROOT = Path(__file__).resolve().parents[1]
-APP = str(ROOT / "build" / "Search.app")
+APP = str(ROOT / "build" / "Browse.app")
 HOME = os.path.expanduser("~")
 def use(name):
     """This checkout's own world for a suite: the name, then a tag made from
@@ -36,8 +36,8 @@ def use(name):
     wants a world apart from the split suite's calls it with its own name."""
     global W, SUPPORT, SUITE, SOCK
     W = f"{name}-{hashlib.sha1(str(ROOT).encode()).hexdigest()[:8]}"
-    SUPPORT = f"{HOME}/Library/Application Support/Search ({W})"
-    SUITE = f"com.officecommun.search.test.{W}"
+    SUPPORT = f"{HOME}/Library/Application Support/Browse ({W})"
+    SUITE = f"com.bryanzaneee.browse.test.{W}"
     SOCK = f"{SUPPORT}/bench.sock"
 use("split-tests")
 class H(BaseHTTPRequestHandler):
@@ -60,7 +60,7 @@ started = set()
 def running(): return set(subprocess.run(["pgrep", "-f", APP + "/Contents/MacOS"], capture_output=True, text=True).stdout.split())
 def holding(): return set(subprocess.run(["lsof", "-t", "--", SOCK], capture_output=True, text=True).stdout.split()) if os.path.exists(SOCK) else set()
 def pids(): return sorted((started & running()) | (holding() & running()))
-WEBKIT = f"{HOME}/Library/WebKit/com.officecommun.search"
+WEBKIT = f"{HOME}/Library/WebKit/com.bryanzaneee.browse"
 def stores():
     """The WebKit stores this world's runs made, where WebKit keeps them and
     named as the app names them (Store.probeStore, Spaces.store): its
@@ -87,7 +87,7 @@ def stores():
             found.append(f"{WEBKIT}/WebsiteDataStore/{id}")
     return found
 # The real Search's folder, beside whose stores these are removed.
-REAL = f"{HOME}/Library/Application Support/Search"
+REAL = f"{HOME}/Library/Application Support/Browse"
 FIRST_SPACE = "00000000-0000-0000-0000-000000000001"
 def guarded():
     """Store ids no wipe removes, whatever stores() names: every space of the

@@ -142,11 +142,11 @@ enum WhatsNew {
                 "Find says “3 of 17”, paints every match, and can match case or whole words.",
                 "Downloads pause and resume.",
                 "Open Link in New Tab leaves you where you are; hold ⌥ to go to it.",
-                "Search can start with a fresh window: your pinned tabs, and none of last time's others.",
+                "Browse can start with a fresh window: your pinned tabs, and none of last time's others.",
                 "Intel Macs get a download of their own.",
             ],
             better: [
-                "Search is built for size, so all of this fits in 6.8 MB, and pages that change all the time, like a chat writing its answer, stay quick.",
+                "Browse is built for size, so all of this fits in 6.8 MB, and pages that change all the time, like a chat writing its answer, stay quick.",
                 "An extension's popup window opens as a small window, as in Chrome: a password manager's vault, a sign-in.",
                 "Esc closes a new tab you haven't used, and words typed into a new tab wait for you.",
                 "Tampermonkey installs scripts from a link, and SingleFile saves pages again.",
@@ -193,12 +193,12 @@ enum WhatsNew {
                 "Scrolling asks far less of the window, and a tab still loading no longer keeps the Mac busy.",
                 "Where links go, peeking at a link with a shift-click, and flicking the floating video to a corner are now on.",
                 "Tab managers and other extensions see every tab, in every window.",
-                "Window › Move & Resize and the Mac's tiling work with Search's window.",
+                "Window › Move & Resize and the Mac's tiling work with Browse's window.",
                 "⌘K always opens the list of your tabs, whatever the page.",
             ],
             fixed: [
                 "⌘← and ⌘→ go back and forward again.",
-                "Links from Notion and other apps bring Search to the front.",
+                "Links from Notion and other apps bring Browse to the front.",
                 "Addresses a dev server prints, like 0.0.0.0:3000, open.",
                 "The tabs you had at quit are the ones that come back.",
                 "The × closes a tab in the tab bar folded away with ⌘S.",
@@ -221,7 +221,7 @@ enum WhatsNew {
             fixed: [
                 "The holes found in this week's reviews: an extension could read files outside its own folder, and a page or an ad could open another app without asking.",
                 "Bitwarden signs in to a self-hosted server, and extension popups hear what changes while they're open.",
-                "A link from Mail brings Search to the front, and a full-screen video no longer goes black.",
+                "A link from Mail brings Browse to the front, and a full-screen video no longer goes black.",
                 "Your extensions may each ask once more for their permissions at their next update.",
             ]
         ),
@@ -230,13 +230,13 @@ enum WhatsNew {
             headline: "Passkeys, password managers and Google.",
             new: [
                 "A site's passkey button brings up the Mac's own passkey sheet: Touch ID, your iPhone, a security key.",
-                "Search can be the Mac's default browser.",
+                "Browse can be the Mac's default browser.",
                 "Each off until you turn it on in Settings: a bookmarks bar, a peek at a link with a shift-click, the video that follows you to another app, pages at 120 Hz, and where a link goes.",
                 "Mute a tab, share a page, copy a link as Markdown, the mouse's back and forward buttons, and spaces in the bar across the top.",
             ],
             better: [
                 "Faster to open, and new tabs in about 10 ms.",
-                "Pages see nothing of Search that Safari doesn't show them, and a saved password is offered only on its own site.",
+                "Pages see nothing of Browse that Safari doesn't show them, and a saved password is offered only on its own site.",
             ],
             fixed: [
                 "1Password, Bitwarden and Proton Pass.",
@@ -252,7 +252,7 @@ enum WhatsNew {
             ],
             better: [],
             fixed: [
-                "Search opens again on macOS 14.",
+                "Browse opens again on macOS 14.",
                 "Signing in to Google no longer reloads the page over and over with iCloud Passwords installed.",
                 "⌘1–⌘9 on every keyboard layout, Tab between a form's fields, dragging tabs, a double-click along the top to fill the screen, and the Mac's beep while typing.",
             ]
@@ -289,7 +289,7 @@ struct WhatsNewCard: View {
     private var fresh: [WhatsNew.Toggle] { WhatsNew.toggles.filter { $0.since == release.version } }
 
     var body: some View {
-        Plate("New in Search \(release.version)", width: 460, close: close) {
+        Plate("New in Browse \(release.version)", width: 460, close: close) {
             ScrollView {
                 VStack(alignment: .leading, spacing: 14) {
                     rows(fresh)
@@ -367,7 +367,7 @@ struct ReleaseNotesPanel: View {
     private func version(_ note: WhatsNew.Notes) -> some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(alignment: .firstTextBaseline, spacing: 8) {
-                Text("Search \(note.version)")
+                Text("Browse \(note.version)")
                     .font(.system(size: 14, weight: .semibold))
                     .foregroundStyle(Palette.ink)
                 if !note.date.isEmpty {

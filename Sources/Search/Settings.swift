@@ -168,7 +168,7 @@ struct SettingsPanel: View {
         Card {
             Line(
                 "Open links from other apps",
-                isDefault ? "Search is the default browser on this Mac" : "Mail, Slack and the rest still send links elsewhere"
+                isDefault ? "Browse is the default browser on this Mac" : "Mail, Slack and the rest still send links elsewhere"
             ) {
                 if isDefault {
                     Image(systemName: "checkmark")
@@ -301,7 +301,7 @@ struct SettingsPanel: View {
                 Switch(on: $prefs.peeksLinks)
             }
             Rule()
-            Line("Open links from other apps in a small window", "To read and close, or keep with Open in Search (⌘O)") {
+            Line("Open links from other apps in a small window", "To read and close, or keep with Open in Browse (⌘O)") {
                 Switch(on: $prefs.littleLinks)
             }
             Rule()
@@ -341,7 +341,7 @@ struct SettingsPanel: View {
                 Switch(on: $prefs.floatsAway)
             }
             Rule()
-            Line("Let a script drive Search", "A local socket for testing. Its tabs open beside yours with a flask on them and never take over — see ./bench") {
+            Line("Let a script drive Browse", "A local socket for testing. Its tabs open beside yours with a flask on them and never take over — see ./bench") {
                 Switch(on: $prefs.bench)
             }
         }
@@ -437,7 +437,7 @@ struct SettingsPanel: View {
                 Switch(on: $prefs.searchesSites)
             }
             Rule()
-            Line("Start with a fresh window", "Each time Search opens, your pinned tabs are there and last time's other tabs aren't.") {
+            Line("Start with a fresh window", "Each time Browse opens, your pinned tabs are there and last time's other tabs aren't.") {
                 Switch(on: $prefs.startsFresh)
             }
             Rule()
@@ -466,7 +466,7 @@ struct SettingsPanel: View {
     /// Says so when a password manager extension has taken the saving over.
     private var savingDetail: String {
         if #available(macOS 15.4, *), let name = Extensions.shared.passwordSavingTakenBy {
-            return "\(name) does the saving — it asked Search not to offer"
+            return "\(name) does the saving — it asked Browse not to offer"
         }
         return "Asked once per site, never again for a site you refuse"
     }
@@ -548,7 +548,7 @@ struct SettingsPanel: View {
                 }
                 if let trouble = shield.trouble {
                     Rule()
-                    Line(trouble, "Nothing is being blocked until this clears — try again, or restart Search") {
+                    Line(trouble, "Nothing is being blocked until this clears — try again, or restart Browse") {
                         Pill("Try again") { shield.compile() }
                     }
                 }
@@ -599,15 +599,11 @@ struct SettingsPanel: View {
     private var about: some View {
         VStack(alignment: .leading, spacing: 18) {
             HStack(spacing: 14) {
-                Logomark()
-                    .fill(Palette.ink, style: FillStyle(eoFill: true))
-                    .aspectRatio(Logomark.canvas.width / Logomark.canvas.height, contentMode: .fit)
-                    .frame(height: 34)
                 VStack(alignment: .leading, spacing: 3) {
-                    Text("Search")
+                    Text("Browse")
                         .font(.system(size: 15, weight: .semibold))
                         .foregroundStyle(Palette.ink)
-                    Text("by Office Commun · version \(Updater.version)")
+                    Text("Community-maintained · version \(Updater.version)")
                         .font(.system(size: 12))
                         .foregroundStyle(Palette.muted)
                 }
@@ -617,7 +613,7 @@ struct SettingsPanel: View {
             Card {
                 Line(versionTitle, versionDetail) { versionControl }
                 Rule()
-                Line("Install updates on its own", "Off, Search still looks every hour and tells you, and installs only when you press Install") {
+                Line("Install updates on its own", "Off, Browse still looks every hour and tells you, and installs only when you press Install") {
                     Switch(on: $prefs.installsUpdates)
                 }
                 Rule()
@@ -663,21 +659,22 @@ struct SettingsPanel: View {
     private var versionTitle: String {
         switch updater.stage {
         case .none: return "Updates"
-        case .fetching(let next): return "Search \(next.version) is downloading…"
-        case .ready(let next): return "Search \(next.version) is ready"
-        case .offered(let next), .waiting(let next): return "Search \(next.version) is out"
+        case .fetching(let next): return "Browse \(next.version) is downloading…"
+        case .ready(let next): return "Browse \(next.version) is ready"
+        case .offered(let next), .waiting(let next): return "Browse \(next.version) is out"
         }
     }
 
     private var versionDetail: String {
         switch updater.stage {
         case .none:
+            if Updater.team == nil && !Store.testing { return "Updates are available in signed Browse releases" }
             return updater.lastChecked.map { "Checked \($0.formatted(.relative(presentation: .named))) — every hour on its own" }
                 ?? "Checked every hour on its own"
         case .fetching(let next):
             return next.notes ?? "Quietly, in the background — nothing you have set is touched"
         case .ready(let next):
-            return next.notes ?? "It's there the next time you open Search"
+            return next.notes ?? "It's there the next time you open Browse"
         case .offered(let next):
             return next.notes ?? "Open the disk image, the same as the first time"
         case .waiting(let next):

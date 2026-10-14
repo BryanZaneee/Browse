@@ -265,19 +265,9 @@ final class Links: NSObject, NSApplicationDelegate {
         _ = NSApp.delegate?.applicationOpenUntitledFile?(NSApp)
     }
 
-    /// ⌘⇧F, the Help menu, and the About page all come here: a draft, in
-    /// Mail, that already knows what build this is. The person still reads
-    /// it and presses send themselves — nothing here sends anything.
+    /// ⌘⇧F, the Help menu, and About open the fork's issue tracker.
     static func writeFeedback() {
-        var text = URLComponents()
-        text.scheme = "mailto"
-        text.path = "hello@officecommun.com"
-        text.queryItems = [
-            URLQueryItem(name: "subject", value: "Search feedback — \(Updater.version) (\(Updater.build))"),
-            URLQueryItem(name: "body", value: "\n\n—\nSearch \(Updater.version), build \(Updater.build), macOS \(ProcessInfo.processInfo.operatingSystemVersionString)"),
-        ]
-        guard let url = text.url else { return }
-        NSWorkspace.shared.open(url)
+        NSWorkspace.shared.open(URL(string: "https://github.com/BryanZaneee/Browse/issues/new")!)
     }
 
     // MARK: - being the browser

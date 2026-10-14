@@ -14,16 +14,16 @@ import Security
 // newer.
 //
 // What the updater leaves alone, on purpose: everything in
-// ~/Library/Application Support/Search, the defaults under
-// com.officecommun.search, and the keychain. The session, the pins, the
+// ~/Library/Application Support/Browse, the defaults under
+// com.bryanzaneee.browse, and the keychain. The session, the pins, the
 // history, the passwords — none of it is read, moved or rewritten here. Only
 // the bundle changes hands, and it keeps its bundle id and its signing
 // identity, so the keychain items the old build made open for the new one.
 // The updater deletes only what it made: its own scratch folder and the
 // `.old` bundle it set aside.
 //
-// build.sh writes the file (build/appcast.json) at the same time as the DMG
-// and the ZIP; publish.sh puts all three where `feed` points.
+// build.sh writes the signed feed beside the DMG and ZIP; the release workflow
+// attaches all three to GitHub Releases.
 
 @MainActor
 final class Updater: ObservableObject {
@@ -31,21 +31,20 @@ final class Updater: ObservableObject {
 
     /// Where the file lives. SEARCH_FEED, for a test run, points somewhere
     /// else — and is the only way plain http is accepted, so a build that
-    /// was not handed the variable only ever listens to the real site.
+    /// was not handed the variable only ever listens to Browse's releases.
     /// SEARCH_FEED points a test run at a feed of its own. Only a test run:
-    /// the browser people use reads Office Commun's feed whatever the
-    /// environment it was started with says.
+    /// an installed browser reads Browse's GitHub release feed.
     static let feed: URL = {
         if overridden, let set = ProcessInfo.processInfo.environment["SEARCH_FEED"], let url = URL(string: set) {
             return url
         }
-        // An Intel Mac has a download of its own from 1.0.5 (build.sh,
-        // SEARCH_ARCH=x86_64) and a feed beside it naming only Intel builds,
+        // An Intel Mac has a download of its own (build.sh,
+        // BROWSE_ARCH=x86_64) and a feed beside it naming only Intel builds,
         // so neither kind of Mac is ever offered the other's.
         #if arch(x86_64)
-        return URL(string: "https://officecommun.com/search/intel/appcast.json")!
+        return URL(string: "https://github.com/BryanZaneee/Browse/releases/latest/download/appcast-Intel.json")!
         #else
-        return URL(string: "https://officecommun.com/search/appcast.json")!
+        return URL(string: "https://github.com/BryanZaneee/Browse/releases/latest/download/appcast.json")!
         #endif
     }()
 
@@ -62,7 +61,7 @@ final class Updater: ObservableObject {
         let dmg: URL
         /// Hex of the ZIP, when the feed gives one.
         let sha256: String?
-        /// Hex of the disk image, for the one Search fetches itself.
+        /// Hex of the disk image, for the one Browse fetches itself.
         var dmgSha256: String? = nil
         let notes: String?
         let minimumSystemVersion: String?
@@ -93,7 +92,7 @@ final class Updater: ObservableObject {
         /// instead — the same as the first time.
         case offered(Release)
         /// Found, and waiting to be asked for: installing on its own is
-        /// switched off in Settings; Install Update is in the Search menu.
+        /// switched off in Settings; Install Update is in the Browse menu.
         case waiting(Release)
     }
 
@@ -154,15 +153,19 @@ final class Updater: ObservableObject {
         check { _ in }
     }
 
-    /// Search › Check for Updates…: the result is said in the line at the
+    /// Browse › Check for Updates…: the result is said in the line at the
     /// foot of the window, and an available update is offered in the menu.
     func checkByHand() {
+        guard Updater.team != nil || Updater.overridden else {
+            say?("Updates are available only in a signed Browse release")
+            return
+        }
         switch stage {
         case .ready(let next):
-            say?("Search \(next.version) is ready — relaunch to use it")
+            say?("Browse \(next.version) is ready — relaunch to use it")
             return
         case .fetching(let next):
-            say?("Search \(next.version) is downloading…")
+            say?("Browse \(next.version) is downloading…")
             return
         default: break
         }
@@ -170,7 +173,7 @@ final class Updater: ObservableObject {
         say?("Checking for updates…")
         check { [weak self] found in
             guard let self else { return }
-            if found == nil { self.say?("Search is up to date"); return }
+            if found == nil { self.say?("Browse is up to date"); return }
             // The waiting branch or `take` announces the next state afterward.
         }
     }
@@ -180,6 +183,7 @@ final class Updater: ObservableObject {
     /// is said through the line handed to `checkIfDue`.
     func check(then done: @escaping (Release?) -> Void) {
         guard !checking else { return }
+        guard Updater.team != nil || Updater.overridden else { done(nil); return }
         checking = true
         Task { [weak self] in
             let found = await Updater.fetch()
@@ -201,14 +205,14 @@ final class Updater: ObservableObject {
             case .waiting(let known) where known == found: break
             case .none, .offered, .waiting:
                 stage = .waiting(found)
-                say?("Search \(found.version) is out — choose Install Update in the Search menu")
+                say?("Browse \(found.version) is out — choose Install Update in the Browse menu")
             }
         }
     }
 
     /// The disk image, when the bundle can't be swapped where it is: fetched
-    /// by Search itself, never through a web page, and opened only if its
-    /// hash is the signed feed's and its signature is Office Commun's.
+    /// by Browse itself, never through a web page, and opened only if its
+    /// hash and Developer ID signature match the signed feed.
     @Published private(set) var fetchingDisk = false
     /// What a test run decided about a disk image, for the bench.
     static var diskVerdict = ""
@@ -216,7 +220,7 @@ final class Updater: ObservableObject {
     func openDisk() {
         guard case .offered(let release) = stage, !fetchingDisk else { return }
         fetchingDisk = true
-        say?("Downloading Search \(release.version)…")
+        say?("Downloading Browse \(release.version)…")
         Task.detached(priority: .utility) {
             let result: Result<URL, Error>
             do { result = .success(try await Swap.disk(release)) } catch { result = .failure(error) }
@@ -228,7 +232,7 @@ final class Updater: ObservableObject {
                     if Store.testing { Updater.diskVerdict = "verified" } else { NSWorkspace.shared.open(dmg) }
                 case .failure(let error):
                     Updater.diskVerdict = "refused: \(error)"
-                    say?("That download didn't check out — get Search from officecommun.com/search")
+                    say?("That download didn't check out — get Browse from github.com/BryanZaneee/Browse/releases")
                 }
             }
         }
@@ -251,7 +255,7 @@ final class Updater: ObservableObject {
         case .none, .offered, .waiting: break
         }
         stage = .fetching(release)
-        say?("Search \(release.version) is downloading…")
+        say?("Browse \(release.version) is downloading…")
         Task.detached(priority: .utility) {
             let worked: Bool
             do {
@@ -268,8 +272,8 @@ final class Updater: ObservableObject {
         guard case .fetching(let fetching) = stage, fetching == release else { return }
         stage = worked ? .ready(release) : .offered(release)
         say?(worked
-            ? "Search \(release.version) is ready — it's there the next time you open it"
-            : "Search \(release.version) is out — choose Download Update in the Search menu")
+            ? "Browse \(release.version) is ready — it's there the next time you open it"
+            : "Browse \(release.version) is out — choose Download Update in the Browse menu")
     }
 
     /// Quit, and come back as the new one. A shell waits for this process
@@ -301,7 +305,7 @@ final class Updater: ObservableObject {
     }
 
     private static func fetch() async -> Release? {
-        // The feed as Office Commun signed it: appcast.json.zip, next to the
+        // The feed as Browse signed it: appcast.json.zip, next to the
         // plain one older builds read, holding the same file with its code
         // signature (build.sh). Only what comes out of it, checked, is read:
         // a feed a server or a hijacked answer made up is no feed at all.
@@ -353,11 +357,11 @@ final class Updater: ObservableObject {
         return data
     }
 
-    /// The team that signs Search's releases, and with them its feed.
-    nonisolated static let team = "7BYKA895MC"
-    nonisolated static let feedIdentifier = "com.officecommun.search.appcast"
+    /// The team that signs Browse and its update feed.
+    nonisolated static var team: String? { Swap.teamID(of: Bundle.main.bundleURL) }
+    nonisolated static let feedIdentifier = "com.bryanzaneee.browse.appcast"
 
-    /// The feed inside `packed`, if it is Office Commun's: appcast.json with
+    /// The feed inside `packed`, if Browse signed it: appcast.json with
     /// a code signature (codesign keeps it in the file's extended attributes,
     /// and ditto carries those in the ZIP) that holds up and meets the
     /// Developer ID requirement for the team and the feed's own identifier.
@@ -378,7 +382,8 @@ final class Updater: ObservableObject {
         else { return nil }
         var code: SecStaticCode?
         guard SecStaticCodeCreateWithPath(file as CFURL, [], &code) == errSecSuccess, let code,
-              let requirement = Swap.developerID(team: team, identifier: feedIdentifier),
+              let developer = team,
+              let requirement = Swap.developerID(team: developer, identifier: feedIdentifier),
               SecStaticCodeCheckValidity(code, [], requirement) == errSecSuccess
         else { return nil }
         return data
@@ -435,7 +440,7 @@ private enum Swap {
         try files.createDirectory(at: scratch, withIntermediateDirectories: true)
         defer { try? files.removeItem(at: scratch) }
 
-        let zip = scratch.appendingPathComponent("Search.zip")
+        let zip = scratch.appendingPathComponent("Browse.zip")
         try await download(release.archive, to: zip)
         // A feed with no checksum is refused as a wrong one would be: build.sh
         // always writes it, so one missing is a feed that isn't ours.
@@ -520,7 +525,7 @@ private enum Swap {
     }
 
     /// The requirement every Developer ID app from this team meets, the one
-    /// `codesign -d -r-` prints for a shipped Search: Apple's anchor, the
+    /// `codesign -d -r-` prints for a shipped Browse: Apple's anchor, the
     /// Developer ID intermediate (…6.2.6) and a Developer ID Application
     /// leaf (…6.1.13), with this team in it, for this bundle id.
     /// The disk image, fetched, checked against the signed feed's hash and
@@ -529,12 +534,13 @@ private enum Swap {
         guard let expected = release.dmgSha256 else { throw Refused.hash }
         let folder = FileManager.default.temporaryDirectory.appendingPathComponent("search-disk-\(UUID().uuidString)", isDirectory: true)
         try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
-        let dmg = folder.appendingPathComponent("Search \(release.version).dmg")
+        let dmg = folder.appendingPathComponent("Browse \(release.version).dmg")
         try await download(release.dmg, to: dmg)
         guard try digest(of: dmg) == expected else { throw Refused.hash }
         var code: SecStaticCode?
         guard SecStaticCodeCreateWithPath(dmg as CFURL, [], &code) == errSecSuccess, let code,
-              let requirement = developerID(team: Updater.team, identifier: nil),
+              let team = Updater.team,
+              let requirement = developerID(team: team, identifier: nil),
               SecStaticCodeCheckValidity(code, [], requirement) == errSecSuccess
         else { throw Refused.unsigned }
         return dmg
@@ -552,7 +558,7 @@ private enum Swap {
 
     /// The team that signed a bundle, as the system reads it — nil for an
     /// ad-hoc signature, or none.
-    private static func teamID(of bundle: URL) -> String? {
+    static func teamID(of bundle: URL) -> String? {
         var code: SecStaticCode?
         guard SecStaticCodeCreateWithPath(bundle as CFURL, [], &code) == errSecSuccess, let code else {
             return nil

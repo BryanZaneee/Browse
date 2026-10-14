@@ -73,7 +73,7 @@ final class Bench {
         private static var query: [String: Any] {
             [kSecClass as String: kSecClassGenericPassword,
              kSecUseDataProtectionKeychain as String: true,
-             kSecAttrService as String: "com.officecommun.search.bench",
+             kSecAttrService as String: "com.bryanzaneee.browse.bench",
              kSecAttrAccount as String: Store.world.map { "consent (\($0))" } ?? "consent"]
         }
 

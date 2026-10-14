@@ -1,6 +1,6 @@
 # Changelog
 
-What changes in Search from one version to the next, newest first.
+What changes in Browse, based on Search, from one version to the next, newest first.
 
 **Unreleased** gathers what is done since the last version, as it lands:
 every fix and every addition gets its line the day it is merged. When a
@@ -10,6 +10,12 @@ is what gets posted as the update. What is planned but not done yet lives
 in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased
+
+### Added
+
+- Native macOS Picture in Picture keeps the video in the system player while its page stays in the tab. Returning to the tab no longer hides or restructures the page.
+- A tab's address field suggests local history and completes the address in place. Arrow keys choose a result, Tab accepts completion, and Return or a click opens it; it works in the top bar, sidebar and split views.
+- Browse has a separate app identity, profile, keychain labels, icon and signed update feed, so it can be installed alongside Search.
 
 ### Held back
 
