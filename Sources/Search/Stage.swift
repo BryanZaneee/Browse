@@ -38,6 +38,11 @@ struct Page: View {
                     .transition(.opacity)
             }
 
+            if tab.reader {
+                ReaderLook(tab: tab)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
+            }
+
             if let failure = tab.failure {
                 Trouble(message: failure) { tab.reload() }
                     .transition(.opacity)

@@ -11,6 +11,8 @@ in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased
 
+- Keep article photos, captions and supported embeds in reading mode, with separate light, dark or window appearance for each open article. Audio/video waits for interaction, images and embeds load lazily, and unfamiliar frames are removed. Adapted from Search [#564](https://github.com/driceroland/Search/pull/564), [#565](https://github.com/driceroland/Search/pull/565) and [#566](https://github.com/driceroland/Search/pull/566), thanks to [@dima237](https://github.com/dima237).
+
 - Ask before moving a tab with unsaved form input into a window with different sign-ins. Cancel preserves tabs, split partners and address drafts; stale approvals cannot move a changed page. The same protection applies to compact windows.
 
 - Release retired windows and their keyboard/traffic-light callbacks while preserving last-window restoration. Adapted from [Search #549](https://github.com/driceroland/Search/pull/549), thanks to @Aaditya2605.

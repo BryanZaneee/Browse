@@ -4285,12 +4285,37 @@ final class Browser: NSObject, ObservableObject {
     func zoom(by factor: CGFloat) { active?.magnify(by: factor) }
     func resetZoom() { active?.resetZoom() }
 
+    var confirmReader: (@escaping () -> Void) -> Void = { read in
+        Ask.sure("Enter Reading Mode?",
+                 detail: "This page has unsaved form entries. Reading mode removes the page’s forms, so the entries will be lost.",
+                 confirm: "Read", then: read)
+    }
+
     /// ⌘⇧R. The article, and nothing that was arranged around it.
     func toggleReader() {
         guard let tab = active else { return }
-        tab.toggleReader { [weak self] worked in
-            guard !worked else { return }
-            self?.announce("Nothing to read on this page")
+        let page = tab.built, revision = tab.navigationRevision
+        let address = tab.address, reading = tab.reader, sourceWindow = window
+        let complete: () -> Void = { [weak self, weak tab, weak page] in
+            guard let self, let tab, self.active === tab,
+                  self.window === sourceWindow, tab.built === page,
+                  tab.navigationRevision == revision, tab.address == address,
+                  tab.reader == reading else { return }
+            tab.toggleReader { [weak self, weak tab] worked in
+                guard !worked, let self, let tab, self.active === tab,
+                      tab.navigationRevision == revision else { return }
+                self.announce("Nothing to read on this page")
+            }
+        }
+        // Exiting reloads the deliberately extracted document, which has no
+        // forms. Only entry can discard the original page's editable fields.
+        guard !reading else { complete(); return }
+        tab.unsaved { [weak self, weak tab, weak page] unsaved in
+            guard let self, let tab, self.active === tab,
+                  self.window === sourceWindow, tab.built === page,
+                  tab.navigationRevision == revision, tab.address == address,
+                  tab.reader == reading else { return }
+            if unsaved { self.confirmReader(complete) } else { complete() }
         }
     }
 
