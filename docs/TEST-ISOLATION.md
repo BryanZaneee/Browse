@@ -16,7 +16,7 @@ XCTest uses a process-unique temporary directory/defaults suite and a randomly i
 - `python3 Tests/test_world_native.py`: two simultaneous local-fixture worlds; credentials, cookies/local storage, relaunch, wiping one while the other remains usable, unchanged production metadata. It never reads production page contents.
 - `python3 Tests/ClipboardRegression/run.py`: production clipboard seam, native editing and DOM writes; system clipboard change count unchanged.
 - `python3 Tests/run-unit-tests.py --filter TestIsolationTests`: synthetic credentials/consent and native clipboard isolation.
-- `python3 Tests/split_view.py`: existing native harness using the same ownership contract.
+- `python3 Tests/split_view.py` and `python3 Tests/text_replacement.py`: existing native harnesses using the same ownership contract. Text replacement assertions never print the Mac’s replacement phrase.
 
 Run the normal build/test gates as described in [AGENTS.md](../AGENTS.md). Only owned disposable fixtures may be used; never restore the system clipboard after a test as a substitute for isolation.
 

@@ -3,7 +3,7 @@
 
 Build first (`./build.sh` or `./build.sh debug`), then run
 `python3 Tests/split_view.py`. The app is started hidden in a world of its
-own (SEARCH_PROBE=split-tests-<checkout>, see use()), driven through
+own (the shared World launcher, see use()), driven through
 ./bench's socket, and quit;
 its settings and files are removed afterwards. Nothing here makes, shows or
 brings forward a window: what can only be seen — dragging onto a page's
