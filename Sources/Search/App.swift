@@ -972,6 +972,11 @@ struct ContentView: View {
     }
 
     private func dress(_ window: NSWindow) {
+        // WindowSetup runs on the next turn. Closing before that turn must
+        // not reinstall callbacks which retirement has already removed.
+        // A refreshed scene is registered when it becomes key, after setup.
+        guard Browsers.all.contains(where: { $0 === browser })
+                || (browser.inScene && SceneSlot.shared.browser === browser) else { return }
         browser.window = window
         window.tabbingMode = .disallowed
         // Light or dark is the app's to say (Settings › Appearance); the
