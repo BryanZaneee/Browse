@@ -72,6 +72,8 @@ With Split View on, `⌥⌘N` splits the current page and `⌃⌘←` / `⌃⌘�
 
 ---
 
+Saved-data failures are reported with a chance to keep working before quitting; [recovery details](docs/PERSISTENCE-RECOVERY.md) explain preserved unreadable files.
+
 ## For developers
 
 ### Why the source is here

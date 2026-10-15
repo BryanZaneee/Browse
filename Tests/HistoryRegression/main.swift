@@ -332,6 +332,18 @@ private func testCompletionFinishesWWWSitesWithoutTheirWWW() {
     Checks.expect(history.completion(for: "plain-t", among: plain) == nil, "dropping the www must not turn an http page into https")
 }
 
+@MainActor
+private func testQuitFlushIncludesThePendingVisit() {
+    Store.use("quit-flush")
+    let history = History()
+    let address = "https://quit-flush.example.test/pending"
+    history.record(url(address), title: "Pending visit")
+    history.flush()
+    let data = try? Data(contentsOf: Store.file("history.json"))
+    let saved = data.flatMap { try? JSONDecoder().decode([LegacyVisit].self, from: $0) } ?? []
+    Checks.expect(saved.contains { $0.url == address }, "quit flush must save the newest visit without waiting for the debounce")
+}
+
 @main
 private struct HistoryRegression {
     @MainActor
@@ -344,6 +356,7 @@ private struct HistoryRegression {
         testCredentialsNeverReachTheFile()
         testLegacyCreditsMoveToTheOriginTheirPagesUsed()
         testCompletionFinishesWWWSitesWithoutTheirWWW()
+        testQuitFlushIncludesThePendingVisit()
 
         guard Checks.failures.isEmpty else {
             fputs("\(Checks.failures.count) History regression assertion(s) failed.\n", stderr)

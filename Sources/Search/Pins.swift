@@ -43,8 +43,7 @@ enum Pins {
     static func load() {
         guard !loaded else { return }
         loaded = true
-        if let data = try? Data(contentsOf: file),
-           let saved = try? JSONDecoder().decode([String: [PinDef]].self, from: data) {
+        if let saved = Disk.read([String: [PinDef]].self, from: file) {
             for (key, defs) in saved {
                 if let space = UUID(uuidString: key) { bySpace[space] = defs }
             }
@@ -80,6 +79,6 @@ enum Pins {
     private static func save() {
         var out: [String: [PinDef]] = [:]
         for (space, defs) in bySpace { out[space.uuidString] = defs }
-        Disk.write(file) { try? JSONEncoder().encode(out) }
+        Disk.write(file) { try JSONEncoder().encode(out) }
     }
 }

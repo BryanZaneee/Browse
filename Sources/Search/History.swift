@@ -460,11 +460,7 @@ final class History: ObservableObject {
     private static var file: URL { Store.file("history.json") }
 
     private func load() {
-        guard let data = try? Data(contentsOf: History.file) else { return }
-        guard let list = try? JSONDecoder().decode([Visit].self, from: data) else {
-            Store.quarantine(History.file)
-            return
-        }
+        guard let list = Disk.read([Visit].self, from: History.file) else { return }
         // Keys written by an older Search can meet under the new rule:
         // they are merged, never trusted to be unique.
         var cleaned = false
@@ -537,18 +533,18 @@ final class History: ObservableObject {
     private func save() {
         guard !saving else { return }
         saving = true
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { [weak self] in
-            guard let self else { return }
-            saving = false
-            let now = Date()
-            // A cap, so the file can't grow without end. What goes is what has
-            // been visited least and longest ago.
-            let snapshot = self.visits
-            let file = History.file
-            Disk.write(file) {
-                let list = Array(snapshot.values.sorted { History.score($0, now: now) > History.score($1, now: now) }.prefix(2_000))
-                return try? JSONEncoder().encode(list)
-            }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { [weak self] in self?.flush(now: false) }
+    }
+
+    /// Include the debounce's newest snapshot in the quit-time failure decision.
+    func flush(now: Bool = true) {
+        guard saving else { return }
+        saving = false
+        let date = Date()
+        let snapshot = visits
+        Disk.write(History.file, now: now) {
+            let list = Array(snapshot.values.sorted { History.score($0, now: date) > History.score($1, now: date) }.prefix(2_000))
+            return try JSONEncoder().encode(list)
         }
     }
 

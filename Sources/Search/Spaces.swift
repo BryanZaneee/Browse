@@ -71,15 +71,13 @@ enum Spaces {
     /// Every space, the first one first — made on the spot if there is no
     /// list yet.
     static func read() -> [Space] {
-        let saved = (try? Data(contentsOf: file)).flatMap { try? JSONDecoder().decode([Space].self, from: $0) } ?? []
+        let saved = Disk.read([Space].self, from: file) ?? []
         let first = saved.first(where: \.isFirst) ?? Space(id: Space.firstID, name: "Personal", colour: 0)
         return [first] + saved.filter { !$0.isFirst }
     }
 
     static func write(_ spaces: [Space]) {
-        guard let data = try? JSONEncoder().encode(spaces) else { return }
-        try? FileManager.default.createDirectory(at: file.deletingLastPathComponent(), withIntermediateDirectories: true)
-        try? data.write(to: file, options: .atomic)
+        Disk.write(file, now: true) { try JSONEncoder().encode(spaces) }
         // Every window's list follows (see Browser.init).
         NotificationCenter.default.post(name: changed, object: spaces)
     }

@@ -19,6 +19,7 @@ final class Links: NSObject, NSApplicationDelegate {
     /// A first quit waits for an import worker to remove its temporary files.
     /// AppKit calls us again when that cleanup has finished.
     private var terminationPending = false
+    private var diskObserver: NSObjectProtocol?
 
     /// Quitting closes every window on the way out; that isn't a window
     /// closed for good, whose tabs would go (see Browsers.closing).
@@ -29,7 +30,7 @@ final class Links: NSObject, NSApplicationDelegate {
         }
         guard waiting else {
             terminationPending = false
-            return .terminateNow
+            return MainActor.assumeIsolated { Self.saveBeforeQuit(confirm: PersistenceNotice.confirmQuit) }
         }
         if !terminationPending {
             terminationPending = true
@@ -49,11 +50,20 @@ final class Links: NSObject, NSApplicationDelegate {
         return .terminateCancel
     }
 
-    func applicationWillTerminate(_ notification: Notification) {
-        // Every window, and windows.json (see Windows.swift).
+    @MainActor
+    static func saveBeforeQuit(confirm: () -> Bool) -> NSApplication.TerminateReply {
         Browsers.flush()
-        // And the bookmarks or downloads list saved a moment ago, still on
-        // their way to the disk.
+        Shared.history.flush()
+        Disk.retry()
+        if Disk.hasUnsavedChanges, !confirm() {
+            Browsers.quitting = false
+            return .terminateCancel
+        }
+        return .terminateNow
+    }
+
+    func applicationWillTerminate(_ notification: Notification) {
+        // Saving and the failure decision happen before AppKit commits to quitting.
         Disk.drain()
     }
 
@@ -97,6 +107,10 @@ final class Links: NSObject, NSApplicationDelegate {
     /// window is asked for here instead; started hidden, it stays hidden
     /// with the app until the app is shown.
     func applicationDidFinishLaunching(_ notification: Notification) {
+        diskObserver = NotificationCenter.default.addObserver(forName: Disk.changed, object: nil, queue: .main) { _ in
+            MainActor.assumeIsolated { PersistenceNotice.showPending() }
+        }
+        DispatchQueue.main.async { PersistenceNotice.showPending() }
         // What an import left in the temporary folder when Search stopped
         // in the middle of it — a Safari export's passwords in the clear
         // among it — goes (Security).

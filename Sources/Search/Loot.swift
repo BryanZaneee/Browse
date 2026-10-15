@@ -54,15 +54,13 @@ final class Loot: ObservableObject {
     private static var file: URL { Store.file("downloads.json") }
 
     private func load() {
-        guard let data = try? Data(contentsOf: Loot.file),
-              let list = try? JSONDecoder().decode([Keep].self, from: data)
-        else { return }
+        guard let list = Disk.read([Keep].self, from: Loot.file) else { return }
         kept = list
     }
 
     private func save() {
         let snapshot = kept
         // One after another, the newest last (see Disk).
-        Disk.write(Loot.file) { try? JSONEncoder().encode(snapshot) }
+        Disk.write(Loot.file) { try JSONEncoder().encode(snapshot) }
     }
 }
