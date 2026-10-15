@@ -33,11 +33,14 @@ try:
     time.sleep(.4)
     fields = [sv.cmd({"do": "probe", "window": n}).get("field") for n in (1, 2)]
     t.ok("background window keeps its own Command-L handler", fields == [False, True], fields)
-    sv.cmd({"do": "field", "window": 2, "text": sv.BASE + "/reopen-fixture", "go": True})
+    fixture = sv.BASE + "/reopen-fixture"
+    submission = sv.cmd({"do": "field", "window": 2, "text": fixture, "go": True})
+    assert "error" not in submission, submission
     before = windows("state")[-1]["tabs"]
+    assert fixture in before, "local fixture must load before testing restoration"
     windows("close", n=2)
     restored = windows("reopen")
-    t.ok("closed window reopens with its tabs", len(restored) == 2 and restored[-1]["tabs"] == before)
+    t.ok("closed window reopens with its tabs", len(restored) == 2 and fixture in restored[-1]["tabs"] and restored[-1]["tabs"] == before)
     windows("close", n=2)
     last = windows("state")[0]["tabs"]
     closed = windows("close", n=1)
