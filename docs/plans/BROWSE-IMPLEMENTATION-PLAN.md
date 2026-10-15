@@ -62,7 +62,7 @@ Keep short-lived branches into `main`, with no extra develop branch or automatio
 | F05 `fix: preserve moved pins` | #587 destination pin persistence. | Unvisited destination Space, row/square tier, multiwindow and restart. |
 | F06 `fix: keep bookmarks out of pins` | Adapt upstream `c9f283b` across bar/menu/list. Preserve extension search.query behavior. | Bookmark opened from pin, blank tab reuse and background open. |
 | F07 `fix: refresh installed extensions` | #589 timer and in-flight guard. | Long-running browser, throttle, concurrent triggers, disable/remove and sleep/wake. |
-| F08 `fix: stabilize native messaging` | #483 waiter/callback ordering, EOF lifetime and bounded frames. | Fake-host regressions plus real supported password-manager acceptance. |
+| F08 `fix: stabilize native messaging` | #483 waiter/callback ordering, EOF lifetime and bounded frames implemented for #17 review; real password-manager validation explicitly deferred by the user. See [validation](../NATIVE-MESSAGING.md). | Fake-host regressions plus real supported password-manager acceptance. |
 | F09 `fix: release closed windows` | Current #549, coordinated with separate #431 focus and #554 title changes. | Repeated open/close, reopen, last-window semantics, keyboard focus and resource plateau. |
 | F10 `fix: report failed state saves` | Existing Disk error handling and corrupt windows/pins recovery. Reuse existing quarantine behavior. | Unwritable destination, malformed JSON, interrupted save; no silent loss or overwrite of recoverable bytes. |
 | F11 `fix: protect drafts during moves` | Apply the existing unsaved decision before cross-store window transfer. | Cancel leaves both windows intact; menu/drag paths, split partners and navigation races. |
