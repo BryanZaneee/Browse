@@ -4,6 +4,7 @@ Run from a clean committed checkout on an otherwise quiet Mac:
 
 ```sh
 python3 Tests/Performance/run.py --configuration release --output /tmp/browse-baseline.json
+# Fixture-only smoke (not measurement evidence): add --smoke to the runner.
 python3 -m unittest discover -s Tests/Performance -p 'test_*.py'
 ```
 

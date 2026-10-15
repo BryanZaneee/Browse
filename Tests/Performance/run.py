@@ -73,8 +73,10 @@ def main():
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--repetitions", type=int, default=3)
     parser.add_argument("--configuration", choices=["debug", "release"], required=True)
+    parser.add_argument("--smoke", action="store_true", help="validate fixtures quickly; results are not performance evidence")
     args = parser.parse_args()
-    if args.repetitions < 3: parser.error("at least three repetitions required")
+    if args.smoke: args.repetitions = 1
+    if not args.smoke and args.repetitions < 3: parser.error("at least three repetitions required")
     def revision():
         if subprocess.check_output(["git", "status", "--porcelain"], cwd=ROOT, text=True).strip():
             raise RuntimeError("performance runs require a clean committed checkout")
@@ -83,11 +85,11 @@ def main():
     subprocess.run(["./build.sh", args.configuration], cwd=ROOT,
                    env=os.environ | {"BROWSE_ARCH": platform.machine()}, check=True)
     if revision() != source: raise RuntimeError("source changed while building")
-    report = {"schema": 1, "revision": source,
+    report = {"schema": 1, "smoke_only": args.smoke, "revision": source,
               "platform": platform.platform(), "architecture": platform.machine(),
               "configuration": args.configuration,
               "mode": "hidden; SEARCH_MEASURE=1; default preferences",
-              "settle_seconds": 60, "sample_seconds": 5, "runs": [],
+              "settle_seconds": .5 if args.smoke else 60, "sample_seconds": .1 if args.smoke else 5, "runs": [],
               "limitations": ["Socket readiness is not rendered first-frame latency or cold-disk launch.",
                  "Content accounting includes only tab-reported PIDs; GPU/network processes remain unattributed.",
                  "Footprints summed across processes can include shared mappings; not a total system memory cost.",
@@ -108,18 +110,18 @@ def main():
         subprocess.run(["clang", "-Wall", "-Wextra", "-Werror", str(Path(__file__).with_name("metrics.c")), "-o", str(helper)], check=True)
         def sample(pids): return json.loads(subprocess.check_output([str(helper), *map(str, pids)], text=True))
         def resource_sample(world, settle=10):
-            time.sleep(settle)
+            time.sleep(.5 if args.smoke else settle)
             hosts = world.pids()
             if len(hosts) != 1: raise RuntimeError("expected one owned process")
             contents = content_pids(command(world, {"do": "tabs"})["tabs"], hosts[0])
             before_host, before_content = sample(hosts), sample(contents)
-            started = time.monotonic(); time.sleep(5)
+            started = time.monotonic(); time.sleep(.1 if args.smoke else 5)
             after_host, after_content = sample(hosts), sample(contents)
             elapsed = time.monotonic() - started
             content = usage_delta(before_content, after_content, elapsed)
             if contents != content_pids(command(world, {"do": "tabs"})["tabs"], hosts[0]):
                 content = {"unavailable": "tab process membership changed"}
-            return {"settle_seconds": settle, "host": usage_delta(before_host, after_host, elapsed), "content": content}
+            return {"settle_seconds": .5 if args.smoke else settle, "host": usage_delta(before_host, after_host, elapsed), "content": content}
         for count in (1, 20, 100):
             for repeat in range(args.repetitions):
                 world = World(f"performance-{count}-{repeat}")
@@ -133,12 +135,12 @@ def main():
                     if not command(world, {"do": "probe"}).get("measuring"): raise RuntimeError("measurement overrides not enabled")
                     tabs = command(world, {"do": "tabs"})["tabs"]
                     if len(tabs) != count: raise RuntimeError(f"expected {count} restored tabs, got {len(tabs)}")
-                    time.sleep(60)
+                    time.sleep(.5 if args.smoke else 60)
                     hosts = world.pids()
                     if len(hosts) != 1: raise RuntimeError("expected exactly one owned app process")
                     contents = content_pids(command(world, {"do": "tabs"})["tabs"], hosts[0])
                     before_host, before_content = sample(hosts), sample(contents)
-                    start = time.monotonic(); time.sleep(5)
+                    start = time.monotonic(); time.sleep(.1 if args.smoke else 5)
                     after_host, after_content = sample(hosts), sample(contents)
                     elapsed = time.monotonic() - start
                     after_pids = content_pids(command(world, {"do": "tabs"})["tabs"], hosts[0])
