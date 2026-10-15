@@ -285,8 +285,10 @@ final class Tab: ObservableObject, Identifiable {
     /// one, set when the new page has arrived.
     @Published private(set) var committed: URL?
     var pageAddress: URL? { committed ?? address }
+    private(set) var navigationRevision: UInt64 = 0
 
     func didCommit() {
+        navigationRevision &+= 1
         video.reset()
         // A new document: whatever the old one waited for under its field
         // went with it.
@@ -684,7 +686,10 @@ final class Tab: ObservableObject, Identifiable {
                 MainActor.assumeIsolated { self?.progress = self?.built?.estimatedProgress ?? 0 }
             },
             web.observe(\.isLoading, options: [.new]) { [weak self] _, _ in
-                MainActor.assumeIsolated { self?.loading = self?.built?.isLoading ?? false }
+                MainActor.assumeIsolated {
+                    self?.navigationRevision &+= 1
+                    self?.loading = self?.built?.isLoading ?? false
+                }
             },
             web.observe(\.canGoBack, options: [.new]) { [weak self] _, _ in
                 MainActor.assumeIsolated { self?.canGoBack = self?.built?.canGoBack ?? false }

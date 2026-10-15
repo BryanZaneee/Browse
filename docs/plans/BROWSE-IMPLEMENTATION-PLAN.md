@@ -65,7 +65,7 @@ Keep short-lived branches into `main`, with no extra develop branch or automatio
 | F08 `fix: stabilize native messaging` | #483 waiter/callback ordering, EOF lifetime and bounded frames. | Fake-host regressions plus real supported password-manager acceptance. |
 | F09 `fix: release closed windows` | Lifecycle repair prepared for #18 from #549 (`1d9c103f`); dependent on #12 and independent review. Separate #431 focus and #554 title changes remain deferred. | Repeated open/close, reopen, last-window semantics, keyboard focus and resource plateau. |
 | F10 `fix: report failed state saves` | Existing Disk error handling and corrupt windows/pins recovery. Reuse existing quarantine behavior. | Unwritable destination, malformed JSON, interrupted save; no silent loss or overwrite of recoverable bytes. |
-| F11 `fix: protect drafts during moves` | Apply the existing unsaved decision before cross-store window transfer. | Cancel leaves both windows intact; menu/drag paths, split partners and navigation races. |
+| F11 `fix: protect drafts during moves` | Cross-store window/compact-window transfer preflight implemented for #20 review. [Validation](../WINDOW-TRANSFERS.md). | Cancel leaves both windows intact; menu/drag paths, split partners and navigation races. |
 | F12 `fix: honor passkey availability` | Review #608 against Browse's entitlement state and stored preference. | First launch, upgrade/downgrade of capability and explicit user choices. No claim that this enables passkeys. |
 
 Run the performance baseline once F01-F03 make it trustworthy, then compare later changes against it. F10/F11 must land before durable group closure, bulk cleanup or cross-profile movement.

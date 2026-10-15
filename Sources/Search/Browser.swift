@@ -3152,27 +3152,38 @@ final class Browser: NSObject, ObservableObject {
     /// reopens with those, as Move to Space does. Not a pin: pins are
     /// already in every window.
     func moveToWindow(_ tab: Tab, _ target: Browser?, at point: NSPoint? = nil) {
-        if composingTab {
-            guard editingTab != tab.id else { return }
-            cancelTabEdit()
-        }
-        guard tab.pin == nil, !tab.bench, target !== self, tabs.contains(where: { $0.id == tab.id }),
+        guard !composingTab || editingTab != tab.id,
+              tab.pin == nil, !tab.bench, target !== self, tabs.contains(where: { $0 === tab }),
+              target == nil || target?.isOpen == true,
               target != nil || tabs.count > 1 || !tab.isBlank
         else { return }
+        let from = spaceID
+        let sourceStore = Spaces.store(for: from)
+        let sourceEditing = editingTab, sourceDraft = tabDraft
+        let sourceWindow = window
         let destination = target ?? Browser(record: WindowRecord(space: spaceID))
-        detach(tab)
-        destination.receive(tab)
-        if target == nil {
-            // Dragged out: the new window where the tab was let go, its row
-            // under the hand.
-            let frame = point.map { p -> NSRect in
-                let size = window?.frame.size ?? NSSize(width: 1180, height: 780)
-                return NSRect(x: p.x - 120, y: p.y - size.height + 20, width: size.width, height: size.height)
+        destination.receive(tab, valid: { [weak self, weak tab] in
+            guard let self, let tab else { return false }
+            return self.spaceID == from && Spaces.store(for: from) === sourceStore
+                && self.editingTab == sourceEditing && self.tabDraft == sourceDraft
+                && !self.shut && self.window === sourceWindow
+                && tab.pin == nil && !tab.bench && self.tabs.contains(where: { $0 === tab })
+                && (!self.composingTab || self.editingTab != tab.id)
+        }, detach: { [weak self] in
+            guard let self else { return }
+            if self.composingTab { self.cancelTabEdit() }
+            self.detach(tab)
+        }, then: {
+            if target == nil {
+                let frame = point.map { p -> NSRect in
+                    let size = sourceWindow?.frame.size ?? NSSize(width: 1180, height: 780)
+                    return NSRect(x: p.x - 120, y: p.y - size.height + 20, width: size.width, height: size.height)
+                }
+                Browsers.open(destination, frame: frame)
+            } else {
+                destination.window?.makeKeyAndOrderFront(nil)
             }
-            Browsers.open(destination, frame: frame)
-        } else {
-            destination.window?.makeKeyAndOrderFront(nil)
-        }
+        })
     }
 
     /// A tab dragged out of the row and let go outside this window: into
@@ -3215,7 +3226,49 @@ final class Browser: NSObject, ObservableObject {
 
     /// A tab from another window, in front here. The empty tab a new window
     /// starts with makes way for it.
-    func receive(_ tab: Tab) {
+    var confirmWindowMove: (@escaping () -> Void) -> Void = { move in
+        Ask.sure("Move Tab?",
+                 detail: "This page has unsaved form entries. It will reopen with the destination window’s sign-ins, so the entries may be lost.",
+                 confirm: "Move", then: move)
+    }
+
+    func receive(_ tab: Tab, valid: @escaping () -> Bool,
+                 detach: @escaping () -> Void, then: @escaping () -> Void) {
+        let destinationSpace = spaceID
+        let destinationStore = Spaces.store(for: spaceID)
+        let destinationWindow = window
+        let destinationEditing = editingTab, destinationDraft = tabDraft
+        let destinationSpaceExists = spaces.contains { $0.id == destinationSpace }
+        let sourceStore = tab.store
+        let page = tab.built
+        let revision = tab.navigationRevision
+        let address = tab.address
+        let changesStore = !tab.shy && sourceStore !== destinationStore
+        let unchanged = { [weak self, weak tab] in
+            guard let self, let tab else { return false }
+            return valid() && !self.shut && self.spaceID == destinationSpace
+                && self.editingTab == destinationEditing && self.tabDraft == destinationDraft
+                && self.spaces.contains(where: { $0.id == destinationSpace }) == destinationSpaceExists
+                && self.window === destinationWindow && Spaces.store(for: self.spaceID) === destinationStore
+                && tab.store === sourceStore && tab.built === page
+                && tab.navigationRevision == revision && tab.address == address
+                && (!changesStore || page?.isLoading != true)
+        }
+        let complete = { [weak self, weak tab] in
+            guard let self, let tab, unchanged() else { return }
+            detach()
+            self.finishReceive(tab)
+            then()
+        }
+        guard unchanged() else { return }
+        guard changesStore else { complete(); return }
+        tab.unsaved { [weak self] unsaved in
+            guard let self, unchanged() else { return }
+            if unsaved { self.confirmWindowMove(complete) } else { complete() }
+        }
+    }
+
+    private func finishReceive(_ tab: Tab) {
         prepare(tab)
         if !tab.shy { tab.rehome(in: spaceID) }
         let blanks = tabs.filter { $0.isBlank && !$0.bench && split(for: $0) == nil }
