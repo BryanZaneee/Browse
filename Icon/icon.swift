@@ -76,29 +76,27 @@ for points in [16, 32, 128, 256, 512] {
 }
 print("drew: \(out.path)")
 
-// The same icon as an Icon Composer document, when a second path is given.
-// macOS 26 lets the Dock show icons Dark, Clear or Tinted, and it can only
-// do that well with an icon that says what each style should be: from the
-// flat image above it made a darkened plate with the black mark still on
-// it, black on black (#337). Here the plate and the mark are separate, so
-// Dark turns them round — a white mark on the ink colour, the S showing the
-// plate through it — and Tinted gets a white mark whose brightness the
-// system tints. The light look is left as it is: the same white, the same
-// ink, the mark at the same size, and no glass, gloss or shadow of its own.
-// build.sh compiles it with actool; the images above stay the .icns.
+// The same Browse window mark on a separate plate for Icon Composer.
+// Keep its page colors legible against both light and dark plates.
 if CommandLine.arguments.count > 2 {
     let doc = URL(fileURLWithPath: CommandLine.arguments[2])
     let assets = doc.appendingPathComponent("Assets")
     try? FileManager.default.removeItem(at: doc)
     try FileManager.default.createDirectory(at: assets, withIntermediateDirectories: true)
 
-    // An Icon Composer canvas is the plate, 1024 points across; the mark
-    // takes the same share of it as it does of the plate drawn above.
-    let width = 1024 * 0.754
-    let height = width * canvas.height / canvas.width
+    // Coordinates match draw(_:), relative to its 824-point plate, with SVG's
+    // downward y axis. Icon Composer supplies the plate and its corners.
     let svg = """
-    <svg xmlns="http://www.w3.org/2000/svg" width="\(width)" height="\(height)" viewBox="0 0 \(Int(canvas.width)) \(Int(canvas.height))">\
-    <path fill-rule="evenodd" fill="#171717" d="\(markData)"/></svg>
+    <svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 824 824">
+      <rect x="150" y="205" width="524" height="414" rx="90" fill="rgb(91%,95%,100%)"/>
+      <rect x="204" y="259" width="416" height="306" rx="48" fill="white"/>
+      <g fill="rgb(22%,43%,82%)">
+        <circle cx="258" cy="351" r="12"/>
+        <rect x="286" y="345" width="330" height="18" rx="9"/>
+        <rect x="286" y="421" width="250" height="18" rx="9"/>
+        <rect x="286" y="497" width="292" height="18" rx="9"/>
+      </g>
+    </svg>
     """
     try svg.write(to: assets.appendingPathComponent("mark.svg"), atomically: true, encoding: .utf8)
 
@@ -117,12 +115,7 @@ if CommandLine.arguments.count > 2 {
             {
               "name" : "mark",
               "image-name" : "mark.svg",
-              "glass" : false,
-              "fill-specializations" : [
-                { "value" : \(ink) },
-                { "appearance" : "dark", "value" : \(white) },
-                { "appearance" : "tinted", "value" : \(white) }
-              ]
+              "glass" : false
             }
           ],
           "shadow" : { "kind" : "none", "opacity" : 0.5 },
