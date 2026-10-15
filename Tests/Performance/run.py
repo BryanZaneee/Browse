@@ -96,6 +96,7 @@ def main():
                  "Hidden pages cannot establish visible heavy-page, video/PiP, high-refresh or frame timing performance.",
                  "Saved group reopen, profile switching and translation are not yet baseline workloads.",
                  "CPU is not battery life; other Macs and OS versions are unmeasured."]}
+    report["power_source"] = subprocess.check_output(["pmset", "-g", "batt"], text=True).splitlines()[0]
     report["hardware"] = subprocess.check_output(["sysctl", "-n", "hw.model", "hw.memsize", "hw.logicalcpu"], text=True).splitlines()
     app = ROOT / "build" / ("intel/" if platform.machine() == "x86_64" else "") / "Browse.app"
     report["app_logical_disk_bytes"] = sum(p.stat().st_size for p in app.rglob("*") if p.is_file())
