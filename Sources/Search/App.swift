@@ -1214,10 +1214,6 @@ struct ContentView: View {
                 browser.closeFind()
                 return true
             }
-            if browser.composingTab {
-                browser.dismiss()
-                return true
-            }
             // One step at a time: the list first, then the field.
             if browser.picked != nil {
                 browser.picked = nil
@@ -1346,6 +1342,14 @@ struct ContentView: View {
         // reliably reach. Only this window's own address field: ⌘Return in a
         // page, the peek, or another box (Settings, History's search) is
         // theirs as before.
+        if event.keyCode == 36 || event.keyCode == 76, browser.composingTab,
+           let window, event.window === window,
+           let editor = window.firstResponder as? NSTextView,
+           let field = editor.delegate as? NSTextField,
+           let coordinator = field.delegate as? TabAddressField.Coordinator, coordinator.browser === browser {
+            browser.commitTabEdit(aside: true, front: shifted)
+            return true
+        }
         if event.keyCode == 36 || event.keyCode == 76, browser.fieldShowing,
            !browser.tabAddressFocused, let window, event.window === window,
            ContentView.inAddressField(window) {

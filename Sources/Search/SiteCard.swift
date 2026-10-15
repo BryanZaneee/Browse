@@ -71,7 +71,7 @@ enum SiteCardPanel {
                 MainActor.assumeIsolated {
                     guard let browser else { return }
                     guard let id = editing, !browser.renamingTab,
-                          let tab = browser.tabs.first(where: { $0.id == id }), !tab.isBlank
+                          let tab = browser.tabs.first(where: { $0.id == id }), !tab.isBlank || browser.composingTab
                     else { original = nil; hide(); return }
                     if original == nil, browser.showingTabInformation {
                         // The edit began: the card comes up under the field once it

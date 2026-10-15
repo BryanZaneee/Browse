@@ -9,4 +9,4 @@
 - Label storage-free component fixtures and synthetic page backgrounds explicitly. They prove component layout, not end-to-end browser behavior. Do not manufacture a working-app screenshot when the app cannot build.
 - Record the fixture command, source revision, macOS version, image dimensions and limitations next to the images. Review every committed frame for privacy and rendering errors.
 
-The connected search fixture is documented in [docs/screenshots/README.md](docs/screenshots/README.md). Its command is `Tests/OmniboxFixture/run.sh`; it compiles the production search view without starting Browse, WebKit or a profile.
+The fixtures are documented in [docs/screenshots/README.md](docs/screenshots/README.md). `Tests/OmniboxFixture/run.sh` renders the storage-free Home component. `Tests/TabEntryFixture/run.sh` renders the actual Browser/tab-strip/child-dropdown path in a disposable test world. Show both the existing tab title and the separate new draft field, so evidence catches focus incorrectly landing in an older tab.

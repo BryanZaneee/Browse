@@ -225,6 +225,10 @@ struct SideBar: View {
                                 let representative = browser.activeSplit?.left ?? id
                                 withAnimation(Motion.glide) { proxy.scrollTo(representative) }
                             }
+                            .onChange(of: browser.editingTab) { _, id in
+                                guard let id else { return }
+                                withAnimation(Motion.glide) { proxy.scrollTo(id) }
+                            }
                             .onAppear {
                                 if let id = browser.activeID {
                                     proxy.scrollTo(browser.activeSplit?.left ?? id, anchor: .center)
