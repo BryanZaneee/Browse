@@ -11,12 +11,12 @@
 ## Claim, isolate and coordinate
 
 - Consult [the issue index](docs/plans/ISSUE-INDEX.md). Only implement work whose dependencies are merged and acceptance is satisfied; a closed issue alone is not proof.
-- Re-read the issue, assignee, state labels and open linked PRs before claiming it. One implementation owner per issue. Record your agent/session identifier, branch/worktree and scope in a short claim comment, then re-read for competing claims. An assignee account alone cannot distinguish agents sharing credentials.
+- Re-read the issue, assignee, claims and open linked PRs before claiming it. One implementation owner per issue. Record your agent/session identifier, branch/worktree and scope in a short claim comment, then re-read for competing claims. An assignee account alone cannot distinguish agents sharing credentials.
 - Use a separate git worktree and branch per implementation agent: `fix/<issue>-short-name`, `feat/<issue>-short-name`, or `chore/<issue>-short-name`. Never have agents edit the same checkout concurrently. Do not reset, clean, stash or overwrite another agent's work.
 - Use only owned disposable test worlds. Until the isolation issue is fixed, do not drive `bench` against real Browse/Search profiles. Profile isolation does not isolate the system clipboard or keychain; use fixtures and existing test seams.
 - Parallelize only issues without unresolved dependencies or overlapping ownership of shared files. Browser.swift, TabBar.swift, Prefs.swift, Store.swift and extension globals often conflict. A coordinator schedules those changes serially or explicitly assigns distinct scopes.
 - Do not automatically launch a swarm. A user/coordinator assigns work; agents may request independent review. Avoid recursive delegation and duplicate PRs.
-- `state:blocked` means prerequisites or an external gate remain; `state:ready` means startable, not assigned; `state:in-progress` means claimed; `state:review` means an implementation PR awaits review; `state:deferred` means not approved for implementation yet. Maintain one state label. GitHub state and native dependencies are authoritative; the index is a map.
+- Use milestones for grouping, native blockers for prerequisites, and claims/linked PRs for ownership and progress. State deferred work explicitly in its issue. Do not add priority or workflow-state labels.
 
 ## Implement the smallest complete change
 
@@ -35,6 +35,11 @@
 - UI changes need reproducible native fixture screenshots in `docs/screenshots/`, light/dark coverage where applicable, keyboard/accessibility checks and real animation evidence when motion is changed. See repo-conventions for format; preserve existing screenshots until replacements exist.
 - Performance claims need the same workload/Mac/OS/configuration, repeated measurements and separate host/WebKit memory. Disk size is not RAM, and idle CPU is not battery life. State untested devices/OS versions.
 - Update CHANGELOG Unreleased and relevant documentation for user-visible work; update plan/issue status without deleting historical provenance.
+
+## Writing
+
+- Keep documentation, issues and PRs brief, direct and clear. Lead with the outcome; include only scope, decisions and evidence needed to act or review. Link shared rules instead of repeating them.
+- Use familiar prefixes for issue and PR titles: `fix:` for bugs, `feat:` for features, `perf:` for performance, `docs:` for documentation, `ci:` for CI, `test:` for validation, and `chore:` for maintenance or investigation. Follow with a short, concrete action. Keep plan IDs out of titles.
 
 ## Commits
 
@@ -57,4 +62,6 @@
 - Implementer fixes findings; reviewer rechecks the new SHA. Avoid cosmetic review churn. High-risk profile/persistence/permissions work needs explicit focused validation.
 - Agents sharing one GitHub identity cannot supply a genuinely separate GitHub account approval. A separate review session can provide evidence but must not impersonate a reviewer or claim it satisfies hosted approval rules.
 - Human/coordinator approval is the default merge gate unless the user explicitly delegates merging. No auto-merge, signing-secret changes, tags or releases without that authorization.
-- After merge, reconcile dependencies: inspect newly unblocked issues, label ready only when their prerequisites hold, and clean up only owned branches/worktrees. Do not mark later phases ready just because one gate merged.
+- After merge, reconcile dependencies: verify newly unblocked issues before assigning them and clean up only owned branches/worktrees.
+
+Dispatch and review prompt examples: [docs/AGENT-WORKFLOW.md](docs/AGENT-WORKFLOW.md).

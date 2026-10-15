@@ -1,8 +1,10 @@
 ---
 name: Agent implementation task
 about: A scoped change with dependencies and measurable acceptance
-labels: "state:blocked"
 ---
+
+<!-- Use a short title such as fix: preserve moved pins or feat: save closed tab groups.
+Be brief, direct and clear. Link shared guidance instead of repeating it. -->
 
 ## Problem and outcome
 
@@ -11,7 +13,7 @@ labels: "state:blocked"
 ## Dependencies
 
 <!-- Link Browse issues and native blocked-by relationships. State “None” if applicable.
-A coordinator marks ready only after prerequisites are satisfied. -->
+Confirm prerequisites are satisfied before implementation. -->
 
 ## Scope and starting points
 

@@ -48,6 +48,9 @@ Use short-lived branches into `main`, one outcome per PR, and short imperative c
 such as `fix: preserve moved pins` or `feat: save closed tab groups`. Preserve upstream
 authorship and link the source revision when adapting a patch.
 
+Keep documentation, issues and PRs brief, direct and clear. Use the same short type
+prefixes for issue and PR titles; keep internal plan IDs out of titles.
+
 Use the PR template: issue or feature, code changes, actual validation, and remaining
 limitations. Include reproducible screenshots for UI and comparable measurements for
 performance claims. Build/test/package checks must pass where applicable; baseline
