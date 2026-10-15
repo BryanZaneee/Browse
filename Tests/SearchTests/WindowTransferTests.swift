@@ -61,8 +61,12 @@ final class WindowTransferTests: XCTestCase {
             if ready as? Bool == true, !web.isLoading, tab.navigationRevision == revision {
                 // Exercise transfer decisions with a deterministic dirty report,
                 // without OS-specific synthesis of trusted WebKit input events.
-                _ = try await web.evaluateJavaScript("window.__officeForms = {unsaved: () => true}", in: nil, in: Web.world)
-                if !web.isLoading, tab.navigationRevision == revision { return }
+                let installed: Bool = try await withCheckedThrowingContinuation { continuation in
+                    web.evaluateJavaScript("window.__officeForms = {unsaved: () => true}; true", in: nil, in: Web.world) { result in
+                        continuation.resume(with: result.map { ($0 as? Bool) == true })
+                    }
+                }
+                if installed, !web.isLoading, tab.navigationRevision == revision { return }
             }
             try await Task.sleep(nanoseconds: 20_000_000)
         }
