@@ -167,7 +167,11 @@ final class TabAddressTests: XCTestCase {
             panel.setFrameOrigin(NSPoint(x: frame.minX, y: spot.maxY + 3))
             SiteCardPanel.reveal(panel, under: field, animated: true)
             XCTAssertEqual(layer.mask?.anchorPoint.y, 0, "An above-field popup unfolds upwards")
-            RunLoop.main.run(until: Date(timeIntervalSinceNow: 0.4))
+            // Hosted compositors can deliver completion after the animation's nominal duration.
+            let deadline = Date(timeIntervalSinceNow: 3)
+            while layer.mask != nil, Date() < deadline {
+                RunLoop.main.run(until: Date(timeIntervalSinceNow: 0.02))
+            }
             XCTAssertNil(layer.mask, "The settled popup must not clip later row changes")
             SiteCardPanel.reveal(panel, under: field, animated: true)
             browser.cancelTabEdit()
