@@ -48,11 +48,25 @@ final class WindowTransferTests: XCTestCase {
 
     private func dirty(_ tab: Tab) async throws {
         let web = tab.web
-        web.loadHTMLString("<textarea id='draft'>fixture draft</textarea>", baseURL: nil)
-        try await wait { !web.isLoading }
-        // Exercise transfer decisions with a deterministic dirty report, without
-        // depending on OS-specific synthesis of trusted WebKit input events.
-        _ = try await web.evaluateJavaScript("window.__officeForms = {unsaved: () => true}", in: nil, in: Web.world)
+        let marker = "transfer-" + UUID().uuidString
+        web.loadHTMLString("<title>\(marker)</title><textarea id='draft'>fixture draft</textarea>", baseURL: nil)
+        // isLoading can still be false before this requested navigation starts.
+        // Wait for this document, not the compact window's initial about:blank.
+        for _ in 0..<150 {
+            let revision = tab.navigationRevision
+            let ready = try? await web.evaluateJavaScript("""
+                document.title === '\(marker)' && document.readyState === 'complete' &&
+                !!document.querySelector('#draft')
+                """)
+            if ready as? Bool == true, !web.isLoading, tab.navigationRevision == revision {
+                // Exercise transfer decisions with a deterministic dirty report,
+                // without OS-specific synthesis of trusted WebKit input events.
+                _ = try await web.evaluateJavaScript("window.__officeForms = {unsaved: () => true}", in: nil, in: Web.world)
+                if !web.isLoading, tab.navigationRevision == revision { return }
+            }
+            try await Task.sleep(nanoseconds: 20_000_000)
+        }
+        XCTFail("Requested dirty fixture did not finish loading")
     }
 
     private func tab(in browser: Browser, shy: Bool = false) async throws -> Tab {
