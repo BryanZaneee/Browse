@@ -99,7 +99,7 @@ enum Spaces {
     @MainActor static func store(for id: UUID) -> WKWebsiteDataStore {
         if id == Space.firstID || sharing.contains(id) { return Store.websites }
         if let made = stores[id] { return made }
-        let made = WKWebsiteDataStore(forIdentifier: id)
+        let made = Store.testing && !Store.ownContainer ? WKWebsiteDataStore.nonPersistent() : WKWebsiteDataStore(forIdentifier: id)
         if Store.keepsSignIns { Store.followSignIns(made) }
         stores[id] = made
         return made
@@ -144,7 +144,7 @@ enum Spaces {
         for text in Store.settings.stringArray(forKey: "spaces.erasing") ?? [] {
             guard let id = UUID(uuidString: text) else { continue }
             Task { @MainActor in
-                do { try await WKWebsiteDataStore.remove(forIdentifier: id) } catch {
+                do { if !Store.testing || Store.ownContainer { try await WKWebsiteDataStore.remove(forIdentifier: id) } } catch {
                     // Gone already is as good as removed; anything else is
                     // tried again later.
                     let left = await WKWebsiteDataStore.allDataStoreIdentifiers

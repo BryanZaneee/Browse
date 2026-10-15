@@ -79,6 +79,7 @@ enum Substitution: String, CaseIterable {
     /// Flipped for every page, through WebKit's own action; without a web
     /// view yet, written where WebKit will read it.
     func toggle(in web: WKWebView?) {
+        guard !Store.testing || Store.ownContainer else { return }
         if let web, web.responds(to: action) {
             web.perform(action, with: nil)
         } else {

@@ -473,6 +473,8 @@ final class Preferences: ObservableObject {
     /// reading them and not us. Text replacement, smart quotes and smart
     /// dashes are Edit › Substitutions' (see Substitutions.swift).
     static func tellWebKit(autocorrect: Bool) {
-        UserDefaults.standard.set(autocorrect, forKey: "WebAutomaticSpellingCorrectionEnabled")
+        if !Store.testing || Store.ownContainer {
+            UserDefaults.standard.set(autocorrect, forKey: "WebAutomaticSpellingCorrectionEnabled")
+        }
     }
 }

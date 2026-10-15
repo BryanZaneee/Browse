@@ -70,6 +70,7 @@ final class Bench {
     /// nothing of yours, and scripts set them up with a defaults write.
     @MainActor
     enum Consent {
+        private static var rehearsal = false
         private static var query: [String: Any] {
             [kSecClass as String: kSecClassGenericPassword,
              kSecUseDataProtectionKeychain as String: true,
@@ -81,6 +82,7 @@ final class Bench {
         /// without Search's provisioning profile has no access group, and
         /// keeps the switch as it always was.
         static var given: Bool {
+            if Store.testing { return rehearsal }
             var asked = query
             asked[kSecReturnAttributes as String] = true
             let status = SecItemCopyMatching(asked as CFDictionary, nil)
@@ -88,6 +90,7 @@ final class Bench {
         }
 
         static func grant() {
+            if Store.testing { rehearsal = true; return }
             var item = query
             item[kSecValueData as String] = Data("on".utf8)
             item[kSecAttrAccessible as String] = kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly
@@ -98,6 +101,7 @@ final class Bench {
         }
 
         static func revoke() {
+            if Store.testing { rehearsal = false; return }
             SecItemDelete(query as CFDictionary)
         }
     }

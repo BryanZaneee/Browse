@@ -156,7 +156,7 @@ final class Extensions: NSObject, ObservableObject {
         // A test run keeps its extensions' storage apart, as it does its
         // cookies and passwords.
         let configuration: WKWebExtensionController.Configuration = Store.testing && !Store.ownContainer
-            ? .init(identifier: Store.probeStore(2))
+            ? .nonPersistent()
             : .default()
         configuration.defaultWebsiteDataStore = Store.websites
         let views = configuration.webViewConfiguration ?? WKWebViewConfiguration()

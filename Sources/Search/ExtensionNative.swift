@@ -23,6 +23,7 @@ enum ExtensionNative {
 
     /// Where Chromium browsers look, per user and for the whole Mac.
     private static var folders: [URL] {
+        if Store.testing { return [Store.file("NativeMessagingHosts")] }
         let home = FileManager.default.homeDirectoryForCurrentUser
         let support = home.appendingPathComponent("Library/Application Support")
         return [
@@ -57,6 +58,9 @@ enum ExtensionNative {
                 throw Refused(why: "Access to the specified native messaging host is forbidden.")
             }
             let program = path.hasPrefix("/") ? URL(fileURLWithPath: path) : folder.appendingPathComponent(path)
+            guard !Store.testing || program.resolvingSymlinksInPath().path.hasPrefix(Store.folder.resolvingSymlinksInPath().path + "/") else {
+                throw Refused(why: "Test hosts must be fixtures inside this world.")
+            }
             guard FileManager.default.isExecutableFile(atPath: program.path) else {
                 throw Refused(why: "Specified native messaging host not found.")
             }
