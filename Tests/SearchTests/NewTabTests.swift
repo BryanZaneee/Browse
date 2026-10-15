@@ -9,12 +9,13 @@ final class NewTabTests: XCTestCase {
         super.setUp()
     }
 
+    // Distinct local HTML pages avoid OS-specific about:blank fragment serialization.
     private func page(privateMode: Bool = false) -> (Browser, Tab) {
         _ = NSApplication.shared
         let browser = Browser(record: WindowRecord())
         if privateMode { browser.newShyTab() }
         let tab = browser.active!
-        tab.go(to: URL(string: "about:blank#original")!)
+        tab.go(to: URL(string: "data:text/html,original")!)
         return (browser, tab)
     }
 
@@ -22,7 +23,7 @@ final class NewTabTests: XCTestCase {
         let (browser, original) = page()
         let ids = browser.tabs.map(\.id)
         browser.newTab()
-        browser.changeTabDraft("about:blank#not-submitted")
+        browser.changeTabDraft("data:text/html,not-submitted")
         XCTAssertTrue(browser.composingTab)
         XCTAssertTrue(browser.tabAddressFocused)
         XCTAssertNotEqual(browser.editingTab, original.id)
@@ -31,12 +32,12 @@ final class NewTabTests: XCTestCase {
         XCTAssertEqual(browser.activeID, original.id)
         XCTAssertEqual(browser.tabs.count, ids.count + 1)
         XCTAssertEqual(Array(browser.tabs.dropLast()).map(\.id), ids)
-        XCTAssertEqual(original.address?.absoluteString, "about:blank#original")
+        XCTAssertEqual(original.address?.absoluteString, "data:text/html,original")
         browser.dismiss()
         XCTAssertFalse(browser.composingTab)
         XCTAssertFalse(browser.fieldShowing)
         XCTAssertEqual(browser.tabs.map(\.id), ids)
-        XCTAssertEqual(original.address?.absoluteString, "about:blank#original")
+        XCTAssertEqual(original.address?.absoluteString, "data:text/html,original")
     }
 
     func testRepeatedNewTabReusesTheSameDraft() {
@@ -89,13 +90,13 @@ final class NewTabTests: XCTestCase {
     func testBlurCancelsTheTabDropdownWithoutParkingADraft() {
         let (browser, original) = page()
         browser.newTab()
-        browser.changeTabDraft("about:blank#unsubmitted")
+        browser.changeTabDraft("data:text/html,unsubmitted")
         browser.finishTabEdit()
         XCTAssertFalse(browser.composingTab)
         XCTAssertNil(browser.editingTab)
         XCTAssertFalse(browser.tabEditParked)
         XCTAssertEqual(browser.activeID, original.id)
-        XCTAssertEqual(original.address?.absoluteString, "about:blank#original")
+        XCTAssertEqual(original.address?.absoluteString, "data:text/html,original")
     }
 
     func testNewTabOnHomeUsesTheTabFieldInsteadOfTheHomeField() {
@@ -119,17 +120,17 @@ final class NewTabTests: XCTestCase {
             let (browser, original) = page(privateMode: privateMode)
             let count = browser.tabs.count
             browser.newTab()
-            browser.changeTabDraft("about:blank#destination")
+            browser.changeTabDraft("data:text/html,destination")
             browser.commitTabEdit()
             let destination = try XCTUnwrap(browser.active)
             XCTAssertEqual(browser.tabs.count, count + 1)
             XCTAssertNotEqual(browser.activeID, original.id)
-            XCTAssertEqual(browser.active?.address?.absoluteString, "about:blank#destination")
+            XCTAssertEqual(browser.active?.address?.absoluteString, "data:text/html,destination")
             XCTAssertEqual(browser.active?.shy, privateMode)
             if privateMode {
                 XCTAssertFalse(destination.store === original.store, "New private tabs keep their own ephemeral store")
             }
-            XCTAssertEqual(original.address?.absoluteString, "about:blank#original")
+            XCTAssertEqual(original.address?.absoluteString, "data:text/html,original")
             XCTAssertFalse(browser.composingTab)
         }
     }
@@ -142,7 +143,7 @@ final class NewTabTests: XCTestCase {
         browser.takeTabSuggestion(offer, for: try XCTUnwrap(browser.editingTab))
         XCTAssertNotEqual(browser.activeID, original.id)
         XCTAssertEqual(browser.active?.address, offer.url)
-        XCTAssertEqual(original.address?.absoluteString, "about:blank#original")
+        XCTAssertEqual(original.address?.absoluteString, "data:text/html,original")
     }
 
     func testAnExistingBlankAndItsDraftStayUntouched() {
@@ -159,7 +160,7 @@ final class NewTabTests: XCTestCase {
         XCTAssertEqual(browser.activeID, original.id)
         browser.newTab()
         let draft = browser.editingTab
-        browser.changeTabDraft("about:blank#destination")
+        browser.changeTabDraft("data:text/html,destination")
         browser.commitTabEdit()
         XCTAssertEqual(browser.tabs.count, count + 1)
         XCTAssertEqual(browser.activeID, draft)
@@ -283,16 +284,16 @@ final class NewTabTests: XCTestCase {
         browser.commitTabEdit()
         XCTAssertEqual(browser.active?.address, url)
         XCTAssertNotEqual(browser.activeID, original.id)
-        XCTAssertEqual(original.address?.absoluteString, "about:blank#original")
+        XCTAssertEqual(original.address?.absoluteString, "data:text/html,original")
     }
 
     func testCommandReturnKeepsTheSourceInFront() {
         let (browser, original) = page()
         browser.newTab()
-        browser.changeTabDraft("about:blank#background")
+        browser.changeTabDraft("data:text/html,background")
         browser.commitTabEdit(aside: true)
         XCTAssertEqual(browser.activeID, original.id)
-        XCTAssertEqual(browser.tabs.last?.address?.absoluteString, "about:blank#background")
+        XCTAssertEqual(browser.tabs.last?.address?.absoluteString, "data:text/html,background")
         XCTAssertFalse(browser.composingTab)
     }
 
@@ -301,12 +302,12 @@ final class NewTabTests: XCTestCase {
         let original = browser.activeID
         browser.typed = "unfinished address"
         browser.newTab()
-        browser.changeTabDraft("about:blank#background")
+        browser.changeTabDraft("data:text/html,background")
         browser.commitTabEdit(aside: true)
         XCTAssertEqual(browser.activeID, original)
         XCTAssertEqual(browser.typed, "unfinished address")
         XCTAssertTrue(browser.fieldShowing)
-        XCTAssertEqual(browser.tabs.last?.address?.absoluteString, "about:blank#background")
+        XCTAssertEqual(browser.tabs.last?.address?.absoluteString, "data:text/html,background")
     }
 
     func testAddressEditAndSwitcherDoNotInheritNewTabIntent() {
@@ -314,10 +315,10 @@ final class NewTabTests: XCTestCase {
         browser.newTab()
         browser.edit()
         XCTAssertFalse(browser.composingTab)
-        browser.typed = "about:blank#edited"
+        browser.typed = "data:text/html,edited"
         browser.submit()
         XCTAssertEqual(browser.activeID, original.id)
-        XCTAssertEqual(original.address?.absoluteString, "about:blank#edited")
+        XCTAssertEqual(original.address?.absoluteString, "data:text/html,edited")
         browser.newTab()
         browser.summon()
         XCTAssertFalse(browser.composingTab)
