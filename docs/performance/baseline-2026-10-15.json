@@ -1,0 +1,825 @@
+{
+  "schema": 1,
+  "smoke_only": false,
+  "revision": "3eddca963a08e59a18e86297e4e188ce8e7f063f",
+  "platform": "macOS-27.0.1-arm64-arm-64bit-Mach-O",
+  "macos": "27.0.1",
+  "architecture": "arm64",
+  "configuration": "release",
+  "mode": "hidden; SEARCH_MEASURE=1; default preferences",
+  "settle_seconds": 60,
+  "sample_seconds": 5,
+  "runs": [
+    {
+      "tabs": 1,
+      "repeat": 1,
+      "launch_socket_ms": 413.45520899631083,
+      "host": {
+        "physical_footprint_bytes": 57853080,
+        "cpu_percent_one_core": 0.07571133774053355
+      },
+      "content": {
+        "physical_footprint_bytes": 25477936,
+        "cpu_percent_one_core": 0.0
+      },
+      "content_processes": 1,
+      "typing_insert_ms": {
+        "median": 0.6947500005480833,
+        "min": 0.47016666212584823,
+        "max": 3.6308333365013823,
+        "n": 25,
+        "p95_nearest_rank": 1.4390416617970914
+      },
+      "typing_runloop_rest_ms": {
+        "median": 6.780583331419621,
+        "min": 3.601083328248933,
+        "max": 35.7727500013425,
+        "n": 25,
+        "p95_nearest_rank": 13.545708330639172
+      },
+      "window_cycle_command_ms": {
+        "median": 1322.968395499629,
+        "min": 1288.0584999948042,
+        "max": 1370.4848340057652,
+        "n": 20,
+        "p95_nearest_rank": 1361.2569160031853
+      },
+      "window_cycle_note": "Includes bench's fixed response delays; not window render latency.",
+      "workloads": {
+        "hidden_heavy_page": {
+          "settle_seconds": 10,
+          "host": {
+            "physical_footprint_bytes": 50955464,
+            "cpu_percent_one_core": 0.02423517385568748
+          },
+          "content": {
+            "physical_footprint_bytes": 62916216,
+            "cpu_percent_one_core": 0.055275212395733214
+          }
+        },
+        "collapsed_group": {
+          "settle_seconds": 10,
+          "host": {
+            "physical_footprint_bytes": 51201224,
+            "cpu_percent_one_core": 0.04468101090970423
+          },
+          "content": {
+            "physical_footprint_bytes": 64489080,
+            "cpu_percent_one_core": 0.010786948571149493
+          }
+        },
+        "suspended_page": {
+          "settle_seconds": 10,
+          "host": {
+            "physical_footprint_bytes": 66520264,
+            "cpu_percent_one_core": 0.13977754616058374
+          },
+          "content": {
+            "physical_footprint_bytes": 13386544,
+            "cpu_percent_one_core": 0.009614807153915293
+          }
+        },
+        "resumed_page": {
+          "settle_seconds": 10,
+          "host": {
+            "physical_footprint_bytes": 72860872,
+            "cpu_percent_one_core": 0.04894477373969528
+          },
+          "content": {
+            "physical_footprint_bytes": 64669256,
+            "cpu_percent_one_core": 0.059463409295129555
+          }
+        },
+        "closed_group": {
+          "settle_seconds": 10,
+          "host": {
+            "physical_footprint_bytes": 67323080,
+            "cpu_percent_one_core": 0.18222926105478732
+          },
+          "content": {
+            "physical_footprint_bytes": 13386544,
+            "cpu_percent_one_core": 0.014948931031485351
+          }
+        },
+        "extension_on": {
+          "settle_seconds": 10,
+          "host": {
+            "physical_footprint_bytes": 72582344,
+            "cpu_percent_one_core": 0.01919915170798268
+          },
+          "content": {
+            "physical_footprint_bytes": 27542320,
+            "cpu_percent_one_core": 0.0017792258564816037
+          }
+        },
+        "extension_off": {
+          "settle_seconds": 10,
+          "host": {
+            "physical_footprint_bytes": 72451272,
+            "cpu_percent_one_core": 0.007982110423757563
+          },
+          "content": {
+            "physical_footprint_bytes": 27509552,
+            "cpu_percent_one_core": 0.0014442657084753595
+          }
+        }
+      }
+    },
+    {
+      "tabs": 1,
+      "repeat": 2,
+      "launch_socket_ms": 631.9292499974836,
+      "host": {
+        "physical_footprint_bytes": 58377368,
+        "cpu_percent_one_core": 2.5272646087115507
+      },
+      "content": {
+        "physical_footprint_bytes": 27296584,
+        "cpu_percent_one_core": 0.0023582276098615615
+      },
+      "content_processes": 1,
+      "typing_insert_ms": {
+        "median": 0.6227916674106382,
+        "min": 0.48329166747862473,
+        "max": 1.4609583304263651,
+        "n": 25,
+        "p95_nearest_rank": 0.9691666709841229
+      },
+      "typing_runloop_rest_ms": {
+        "median": 5.877999996300787,
+        "min": 3.324875004182104,
+        "max": 12.262083328096196,
+        "n": 25,
+        "p95_nearest_rank": 11.22725000459468
+      },
+      "window_cycle_command_ms": {
+        "median": 1314.032729002065,
+        "min": 1275.784208002733,
+        "max": 1359.0210840047803,
+        "n": 20,
+        "p95_nearest_rank": 1357.5614580040565
+      },
+      "window_cycle_note": "Includes bench's fixed response delays; not window render latency.",
+      "workloads": {
+        "hidden_heavy_page": {
+          "settle_seconds": 10,
+          "host": {
+            "physical_footprint_bytes": 68863176,
+            "cpu_percent_one_core": 0.16082159012011696
+          },
+          "content": {
+            "physical_footprint_bytes": 78415528,
+            "cpu_percent_one_core": 0.08027478747137631
+          }
+        },
+        "collapsed_group": {
+          "settle_seconds": 10,
+          "host": {
+            "physical_footprint_bytes": 68846792,
+            "cpu_percent_one_core": 0.1652133204671192
+          },
+          "content": {
+            "physical_footprint_bytes": 78382760,
+            "cpu_percent_one_core": 0.008043791957063921
+          }
+        },
+        "suspended_page": {
+          "settle_seconds": 10,
+          "host": {
+            "physical_footprint_bytes": 69338312,
+            "cpu_percent_one_core": 0.30399355774497194
+          },
+          "content": {
+            "physical_footprint_bytes": 27460424,
+            "cpu_percent_one_core": 0.00962212239058522
+          }
+        },
+        "resumed_page": {
+          "settle_seconds": 10,
+          "host": {
+            "physical_footprint_bytes": 75515080,
+            "cpu_percent_one_core": 0.1994267735898738
+          },
+          "content": {
+            "physical_footprint_bytes": 78530144,
+            "cpu_percent_one_core": 0.06994169828153288
+          }
+        },
+        "closed_group": {
+          "settle_seconds": 10,
+          "host": {
+            "physical_footprint_bytes": 70091976,
+            "cpu_percent_one_core": 0.1675035593668035
+          },
+          "content": {
+            "physical_footprint_bytes": 27411272,
+            "cpu_percent_one_core": 0.011532093383862234
+          }
+        },
+        "extension_on": {
+          "settle_seconds": 10,
+          "host": {
+            "physical_footprint_bytes": 74040520,
+            "cpu_percent_one_core": 0.038484006856497464
+          },
+          "content": {
+            "physical_footprint_bytes": 27460424,
+            "cpu_percent_one_core": 0.0037939999508786694
+          }
+        },
+        "extension_off": {
+          "settle_seconds": 10,
+          "host": {
+            "physical_footprint_bytes": 73893064,
+            "cpu_percent_one_core": 0.007820644752599679
+          },
+          "content": {
+            "physical_footprint_bytes": 27444040,
+            "cpu_percent_one_core": 0.001651536742987487
+          }
+        }
+      }
+    },
+    {
+      "tabs": 1,
+      "repeat": 3,
+      "launch_socket_ms": 634.324958002253,
+      "host": {
+        "physical_footprint_bytes": 58279088,
+        "cpu_percent_one_core": 0.016369982713660906
+      },
+      "content": {
+        "physical_footprint_bytes": 25576216,
+        "cpu_percent_one_core": 0.0027644755336454926
+      },
+      "content_processes": 1,
+      "typing_insert_ms": {
+        "median": 0.6792916683480144,
+        "min": 0.5463749985210598,
+        "max": 6.275583335082047,
+        "n": 25,
+        "p95_nearest_rank": 1.4555416710209101
+      },
+      "typing_runloop_rest_ms": {
+        "median": 6.630750001932029,
+        "min": 3.57866666308837,
+        "max": 36.96566666621948,
+        "n": 25,
+        "p95_nearest_rank": 12.850541665102355
+      },
+      "window_cycle_command_ms": {
+        "median": 1320.7465414998296,
+        "min": 1283.6892920022365,
+        "max": 1470.5700840058853,
+        "n": 20,
+        "p95_nearest_rank": 1393.3625839999877
+      },
+      "window_cycle_note": "Includes bench's fixed response delays; not window render latency.",
+      "workloads": {
+        "hidden_heavy_page": {
+          "settle_seconds": 10,
+          "host": {
+            "physical_footprint_bytes": 52020448,
+            "cpu_percent_one_core": 3.0201395368894928
+          },
+          "content": {
+            "physical_footprint_bytes": 82675272,
+            "cpu_percent_one_core": 0.08048651395970885
+          }
+        },
+        "collapsed_group": {
+          "settle_seconds": 10,
+          "host": {
+            "physical_footprint_bytes": 52020448,
+            "cpu_percent_one_core": 0.1506809827273714
+          },
+          "content": {
+            "physical_footprint_bytes": 82642504,
+            "cpu_percent_one_core": 0.013613864987031328
+          }
+        },
+        "suspended_page": {
+          "settle_seconds": 10,
+          "host": {
+            "physical_footprint_bytes": 67536096,
+            "cpu_percent_one_core": 0.15120512850382956
+          },
+          "content": {
+            "physical_footprint_bytes": 27427608,
+            "cpu_percent_one_core": 0.009675521299940391
+          }
+        },
+        "resumed_page": {
+          "settle_seconds": 10,
+          "host": {
+            "physical_footprint_bytes": 57689312,
+            "cpu_percent_one_core": 0.051124513633442996
+          },
+          "content": {
+            "physical_footprint_bytes": 64570928,
+            "cpu_percent_one_core": 0.08247675455961785
+          }
+        },
+        "closed_group": {
+          "settle_seconds": 10,
+          "host": {
+            "physical_footprint_bytes": 52577504,
+            "cpu_percent_one_core": 0.20372328927206132
+          },
+          "content": {
+            "physical_footprint_bytes": 13484824,
+            "cpu_percent_one_core": 0.012568353919707436
+          }
+        },
+        "extension_on": {
+          "settle_seconds": 10,
+          "host": {
+            "physical_footprint_bytes": 55133408,
+            "cpu_percent_one_core": 0.2106793317186196
+          },
+          "content": {
+            "physical_footprint_bytes": 27706136,
+            "cpu_percent_one_core": 0.0
+          }
+        },
+        "extension_off": {
+          "settle_seconds": 10,
+          "host": {
+            "physical_footprint_bytes": 55198944,
+            "cpu_percent_one_core": 0.15857647451130666
+          },
+          "content": {
+            "physical_footprint_bytes": 27804440,
+            "cpu_percent_one_core": 0.2396517009713302
+          }
+        }
+      }
+    },
+    {
+      "tabs": 20,
+      "repeat": 1,
+      "launch_socket_ms": 741.495375004888,
+      "host": {
+        "physical_footprint_bytes": 46777544,
+        "cpu_percent_one_core": 0.05363093840223784
+      },
+      "content": {
+        "physical_footprint_bytes": 27214640,
+        "cpu_percent_one_core": 0.0021574976640682574
+      },
+      "content_processes": 1,
+      "typing_insert_ms": {
+        "median": 0.4439999975147657,
+        "min": 0.35529166780179366,
+        "max": 1.9519999987096526,
+        "n": 25,
+        "p95_nearest_rank": 0.6015416656737216
+      },
+      "typing_runloop_rest_ms": {
+        "median": 4.676624994317535,
+        "min": 3.839291661279276,
+        "max": 14.728083333466202,
+        "n": 25,
+        "p95_nearest_rank": 7.7423333350452594
+      }
+    },
+    {
+      "tabs": 20,
+      "repeat": 2,
+      "launch_socket_ms": 620.0638330046786,
+      "host": {
+        "physical_footprint_bytes": 44811488,
+        "cpu_percent_one_core": 0.07810004751550516
+      },
+      "content": {
+        "physical_footprint_bytes": 27198280,
+        "cpu_percent_one_core": 0.002573168293257038
+      },
+      "content_processes": 1,
+      "typing_insert_ms": {
+        "median": 0.6719583325320855,
+        "min": 0.49104166828328744,
+        "max": 5.109333331347443,
+        "n": 25,
+        "p95_nearest_rank": 1.0659166655386798
+      },
+      "typing_runloop_rest_ms": {
+        "median": 7.030125001620036,
+        "min": 4.681708327552769,
+        "max": 28.870958332845476,
+        "n": 25,
+        "p95_nearest_rank": 10.566874996584374
+      }
+    },
+    {
+      "tabs": 20,
+      "repeat": 3,
+      "launch_socket_ms": 522.0866669988027,
+      "host": {
+        "physical_footprint_bytes": 46204128,
+        "cpu_percent_one_core": 0.04856773914485157
+      },
+      "content": {
+        "physical_footprint_bytes": 27247408,
+        "cpu_percent_one_core": 0.0024252407076382787
+      },
+      "content_processes": 1,
+      "typing_insert_ms": {
+        "median": 0.4293749952921644,
+        "min": 0.36245833325665444,
+        "max": 2.4835000003804453,
+        "n": 25,
+        "p95_nearest_rank": 0.6209999992279336
+      },
+      "typing_runloop_rest_ms": {
+        "median": 5.608250001387205,
+        "min": 3.8198749971343204,
+        "max": 15.545583330094814,
+        "n": 25,
+        "p95_nearest_rank": 7.6912083313800395
+      }
+    },
+    {
+      "tabs": 100,
+      "repeat": 1,
+      "launch_socket_ms": 628.4048750021611,
+      "host": {
+        "physical_footprint_bytes": 65225928,
+        "cpu_percent_one_core": 0.04834049019350853
+      },
+      "content": {
+        "physical_footprint_bytes": 25445192,
+        "cpu_percent_one_core": 0.0
+      },
+      "content_processes": 1,
+      "typing_insert_ms": {
+        "median": 0.7028749969322234,
+        "min": 0.5980416681268252,
+        "max": 1.8124583293683827,
+        "n": 25,
+        "p95_nearest_rank": 0.9237916674464941
+      },
+      "typing_runloop_rest_ms": {
+        "median": 12.754916664562188,
+        "min": 9.744541661348194,
+        "max": 24.94329166074749,
+        "n": 25,
+        "p95_nearest_rank": 17.571333337400574
+      }
+    },
+    {
+      "tabs": 100,
+      "repeat": 2,
+      "launch_socket_ms": 513.5731250047684,
+      "host": {
+        "physical_footprint_bytes": 66028744,
+        "cpu_percent_one_core": 0.045182699310193766
+      },
+      "content": {
+        "physical_footprint_bytes": 25445168,
+        "cpu_percent_one_core": 0.0
+      },
+      "content_processes": 1,
+      "typing_insert_ms": {
+        "median": 0.6724583363393322,
+        "min": 0.5945416705799289,
+        "max": 2.8142083319835365,
+        "n": 25,
+        "p95_nearest_rank": 0.9778750027180649
+      },
+      "typing_runloop_rest_ms": {
+        "median": 10.53124999452848,
+        "min": 9.552458330290392,
+        "max": 50.489916662627365,
+        "n": 25,
+        "p95_nearest_rank": 16.2215833333903
+      }
+    },
+    {
+      "tabs": 100,
+      "repeat": 3,
+      "launch_socket_ms": 529.571125000075,
+      "host": {
+        "physical_footprint_bytes": 80086240,
+        "cpu_percent_one_core": 0.05154981213530602
+      },
+      "content": {
+        "physical_footprint_bytes": 25543520,
+        "cpu_percent_one_core": 0.0
+      },
+      "content_processes": 1,
+      "typing_insert_ms": {
+        "median": 0.6204583332873881,
+        "min": 0.5569166678469628,
+        "max": 1.798000004782807,
+        "n": 25,
+        "p95_nearest_rank": 0.8300833360408433
+      },
+      "typing_runloop_rest_ms": {
+        "median": 10.04737499897601,
+        "min": 9.534083335893229,
+        "max": 25.229583334294148,
+        "n": 25,
+        "p95_nearest_rank": 18.413750003674068
+      }
+    }
+  ],
+  "limitations": [
+    "Socket readiness is not rendered first-frame latency or cold-disk launch.",
+    "Content accounting includes only tab-reported PIDs; GPU/network and extension-only processes remain unattributed.",
+    "Footprints summed across processes can include shared mappings; not a total system memory cost.",
+    "Hidden pages cannot establish visible heavy-page, video/PiP, high-refresh or frame timing performance.",
+    "Saved group reopen, profile switching and translation are not yet baseline workloads.",
+    "CPU is not battery life; other Macs and OS versions are unmeasured."
+  ],
+  "power_source": "Now drawing from 'Battery Power'",
+  "hardware": [
+    "Mac15,6",
+    "19327352832",
+    "11"
+  ],
+  "app_logical_disk_bytes": 7084863,
+  "executable_sha256": "ca0b2e2115b93e250c79a173c1325c3231a99ab291021de0b17bce074d90d9fc",
+  "summary": {
+    "1": {
+      "launch_socket_ms": {
+        "median": 631.9292499974836,
+        "min": 413.45520899631083,
+        "max": 634.324958002253,
+        "n": 3
+      },
+      "host_physical_footprint_bytes": {
+        "median": 58279088,
+        "min": 57853080,
+        "max": 58377368,
+        "n": 3
+      },
+      "host_cpu_percent_one_core": {
+        "median": 0.07571133774053355,
+        "min": 0.016369982713660906,
+        "max": 2.5272646087115507,
+        "n": 3
+      },
+      "content_physical_footprint_bytes": {
+        "median": 25576216,
+        "min": 25477936,
+        "max": 27296584,
+        "n": 3
+      },
+      "content_cpu_percent_one_core": {
+        "median": 0.0023582276098615615,
+        "min": 0.0,
+        "max": 0.0027644755336454926,
+        "n": 3
+      }
+    },
+    "20": {
+      "launch_socket_ms": {
+        "median": 620.0638330046786,
+        "min": 522.0866669988027,
+        "max": 741.495375004888,
+        "n": 3
+      },
+      "host_physical_footprint_bytes": {
+        "median": 46204128,
+        "min": 44811488,
+        "max": 46777544,
+        "n": 3
+      },
+      "host_cpu_percent_one_core": {
+        "median": 0.05363093840223784,
+        "min": 0.04856773914485157,
+        "max": 0.07810004751550516,
+        "n": 3
+      },
+      "content_physical_footprint_bytes": {
+        "median": 27214640,
+        "min": 27198280,
+        "max": 27247408,
+        "n": 3
+      },
+      "content_cpu_percent_one_core": {
+        "median": 0.0024252407076382787,
+        "min": 0.0021574976640682574,
+        "max": 0.002573168293257038,
+        "n": 3
+      }
+    },
+    "100": {
+      "launch_socket_ms": {
+        "median": 529.571125000075,
+        "min": 513.5731250047684,
+        "max": 628.4048750021611,
+        "n": 3
+      },
+      "host_physical_footprint_bytes": {
+        "median": 66028744,
+        "min": 65225928,
+        "max": 80086240,
+        "n": 3
+      },
+      "host_cpu_percent_one_core": {
+        "median": 0.04834049019350853,
+        "min": 0.045182699310193766,
+        "max": 0.05154981213530602,
+        "n": 3
+      },
+      "content_physical_footprint_bytes": {
+        "median": 25445192,
+        "min": 25445168,
+        "max": 25543520,
+        "n": 3
+      },
+      "content_cpu_percent_one_core": {
+        "median": 0.0,
+        "min": 0.0,
+        "max": 0.0,
+        "n": 3
+      }
+    }
+  },
+  "workload_summary": {
+    "hidden_heavy_page": {
+      "host_physical_footprint_bytes": {
+        "median": 52020448,
+        "min": 50955464,
+        "max": 68863176,
+        "n": 3
+      },
+      "host_cpu_percent_one_core": {
+        "median": 0.16082159012011696,
+        "min": 0.02423517385568748,
+        "max": 3.0201395368894928,
+        "n": 3
+      },
+      "content_physical_footprint_bytes": {
+        "median": 78415528,
+        "min": 62916216,
+        "max": 82675272,
+        "n": 3
+      },
+      "content_cpu_percent_one_core": {
+        "median": 0.08027478747137631,
+        "min": 0.055275212395733214,
+        "max": 0.08048651395970885,
+        "n": 3
+      }
+    },
+    "collapsed_group": {
+      "host_physical_footprint_bytes": {
+        "median": 52020448,
+        "min": 51201224,
+        "max": 68846792,
+        "n": 3
+      },
+      "host_cpu_percent_one_core": {
+        "median": 0.1506809827273714,
+        "min": 0.04468101090970423,
+        "max": 0.1652133204671192,
+        "n": 3
+      },
+      "content_physical_footprint_bytes": {
+        "median": 78382760,
+        "min": 64489080,
+        "max": 82642504,
+        "n": 3
+      },
+      "content_cpu_percent_one_core": {
+        "median": 0.010786948571149493,
+        "min": 0.008043791957063921,
+        "max": 0.013613864987031328,
+        "n": 3
+      }
+    },
+    "suspended_page": {
+      "host_physical_footprint_bytes": {
+        "median": 67536096,
+        "min": 66520264,
+        "max": 69338312,
+        "n": 3
+      },
+      "host_cpu_percent_one_core": {
+        "median": 0.15120512850382956,
+        "min": 0.13977754616058374,
+        "max": 0.30399355774497194,
+        "n": 3
+      },
+      "content_physical_footprint_bytes": {
+        "median": 27427608,
+        "min": 13386544,
+        "max": 27460424,
+        "n": 3
+      },
+      "content_cpu_percent_one_core": {
+        "median": 0.00962212239058522,
+        "min": 0.009614807153915293,
+        "max": 0.009675521299940391,
+        "n": 3
+      }
+    },
+    "resumed_page": {
+      "host_physical_footprint_bytes": {
+        "median": 72860872,
+        "min": 57689312,
+        "max": 75515080,
+        "n": 3
+      },
+      "host_cpu_percent_one_core": {
+        "median": 0.051124513633442996,
+        "min": 0.04894477373969528,
+        "max": 0.1994267735898738,
+        "n": 3
+      },
+      "content_physical_footprint_bytes": {
+        "median": 64669256,
+        "min": 64570928,
+        "max": 78530144,
+        "n": 3
+      },
+      "content_cpu_percent_one_core": {
+        "median": 0.06994169828153288,
+        "min": 0.059463409295129555,
+        "max": 0.08247675455961785,
+        "n": 3
+      }
+    },
+    "closed_group": {
+      "host_physical_footprint_bytes": {
+        "median": 67323080,
+        "min": 52577504,
+        "max": 70091976,
+        "n": 3
+      },
+      "host_cpu_percent_one_core": {
+        "median": 0.18222926105478732,
+        "min": 0.1675035593668035,
+        "max": 0.20372328927206132,
+        "n": 3
+      },
+      "content_physical_footprint_bytes": {
+        "median": 13484824,
+        "min": 13386544,
+        "max": 27411272,
+        "n": 3
+      },
+      "content_cpu_percent_one_core": {
+        "median": 0.012568353919707436,
+        "min": 0.011532093383862234,
+        "max": 0.014948931031485351,
+        "n": 3
+      }
+    },
+    "extension_on": {
+      "host_physical_footprint_bytes": {
+        "median": 72582344,
+        "min": 55133408,
+        "max": 74040520,
+        "n": 3
+      },
+      "host_cpu_percent_one_core": {
+        "median": 0.038484006856497464,
+        "min": 0.01919915170798268,
+        "max": 0.2106793317186196,
+        "n": 3
+      },
+      "content_physical_footprint_bytes": {
+        "median": 27542320,
+        "min": 27460424,
+        "max": 27706136,
+        "n": 3
+      },
+      "content_cpu_percent_one_core": {
+        "median": 0.0017792258564816037,
+        "min": 0.0,
+        "max": 0.0037939999508786694,
+        "n": 3
+      }
+    },
+    "extension_off": {
+      "host_physical_footprint_bytes": {
+        "median": 72451272,
+        "min": 55198944,
+        "max": 73893064,
+        "n": 3
+      },
+      "host_cpu_percent_one_core": {
+        "median": 0.007982110423757563,
+        "min": 0.007820644752599679,
+        "max": 0.15857647451130666,
+        "n": 3
+      },
+      "content_physical_footprint_bytes": {
+        "median": 27509552,
+        "min": 27444040,
+        "max": 27804440,
+        "n": 3
+      },
+      "content_cpu_percent_one_core": {
+        "median": 0.001651536742987487,
+        "min": 0.0014442657084753595,
+        "max": 0.2396517009713302,
+        "n": 3
+      }
+    }
+  }
+}

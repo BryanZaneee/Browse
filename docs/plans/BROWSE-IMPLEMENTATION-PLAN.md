@@ -68,7 +68,7 @@ Keep short-lived branches into `main`, with no extra develop branch or automatio
 | F11 `fix: protect drafts during moves` | Apply the existing unsaved decision before cross-store window transfer. | Cancel leaves both windows intact; menu/drag paths, split partners and navigation races. |
 | F12 `fix: honor passkey availability` | Review #608 against Browse's entitlement state and stored preference. | First launch, upgrade/downgrade of capability and explicit user choices. No claim that this enables passkeys. |
 
-Run the performance baseline once F01-F03 make it trustworthy, then compare later changes against it. The [isolated runner](../../Tests/Performance/README.md) is prepared for #22; measured results and visible-media/high-refresh limitations remain under review. F10/F11 must land before durable group closure, bulk cleanup or cross-profile movement.
+Run the performance baseline once F01-F03 make it trustworthy, then compare later changes against it. The [isolated runner](../../Tests/Performance/README.md) is prepared for #22; the [first measured report](../performance/BASELINE-2026-10-15.md) covers hidden workloads; visible-media/high-refresh evidence remains deferred and #22 stays open. F10/F11 must land before durable group closure, bulk cleanup or cross-profile movement.
 
 **Exit:** green reproducible build/package/tests, no known unhandled draft/pin persistence paths in these operations, stable repeated window ownership, and recorded baseline measurements. A fully signed release remains a separate acceptance gate.
 

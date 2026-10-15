@@ -28,4 +28,4 @@ Launch time ends at the test socket, not the first displayed frame; filesystem c
 | Extensions off/on and suspend/resume | Implemented with a permission-free local extension and heavy page |
 | Three profiles, one active; translation completion | Features unavailable in this baseline |
 
-No measurements are committed yet. Issue #22 remains in progress until the applicable workloads and a reviewed report are recorded. No claim is made about other devices/OS versions, rendering latency or battery life.
+The [2026-10-15 report](../../docs/performance/BASELINE-2026-10-15.md) records three release repetitions on one Mac. Issue #22 remains in progress for the unmeasured workloads. No claim is made about other devices/OS versions, rendering latency or battery life.
