@@ -1,4 +1,6 @@
-# Roadmap
+# Historical Search roadmap
+
+> Browse work is tracked in the [implementation plan](docs/plans/BROWSE-IMPLEMENTATION-PLAN.md) and [GitHub issue index](docs/plans/ISSUE-INDEX.md). The text below is an inherited snapshot, not current Browse instructions. Its `./ideas` generator is not present in this fork.
 
 Every idea and every report about Search, in one place: what is being built
 right now, what goes out with the next version, what comes after, and what
