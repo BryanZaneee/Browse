@@ -1,18 +1,14 @@
 import SwiftUI
 import AppKit
 
-/// One field, in the middle, and the few places it thinks you mean. It takes
-/// addresses and only addresses: type something that isn't a place and it
-/// shivers and says so, rather than quietly handing your keystrokes to a
-/// search engine.
+/// One connected field and suggestion card, shared by Home and the page overlay.
 struct Omnibox: View {
     @ObservedObject var browser: Browser
     /// Raised over a page by ⌘L, rather than standing on an empty tab.
     let over: Bool
 
     /// The field's own height — the 22 of text and 14 of air above and below it
-    /// that `field` lays out — so the list can sit below it without being
-    /// stacked with it.
+    /// that `field` lays out — anchors the card while suggestions grow below.
     private static let fieldHeight: CGFloat = 22 + 14 * 2
 
     @State private var shake: CGFloat = 0
@@ -43,21 +39,34 @@ struct Omnibox: View {
                     .transition(.opacity)
             }
 
-            field
-                .frame(width: width)
-            // The list hangs below the field rather than stacking with it,
-            // so a list that grows never lifts the field out from under
-            // what is being typed.
-            .overlay(alignment: .top) {
-                // Present or gone, not always-on-and-hidden: the list keeps
-                // the appear and disappear it had, and the overlay is what
-                // keeps that from moving the field.
+            VStack(spacing: 0) {
+                field
                 if !browser.offers.isEmpty || browser.siteOffer != nil {
+                    Rectangle()
+                        .fill(Palette.hairline)
+                        .frame(height: 1)
+                        .padding(.horizontal, 16)
                     list
-                        .frame(width: width)
-                        .offset(y: Self.fieldHeight + 8)
                 }
             }
+            .frame(width: width)
+            .fixedSize(horizontal: false, vertical: true)
+            .background {
+                ZStack {
+                    Breath()
+                    RoundedRectangle(cornerRadius: 14, style: .continuous)
+                        .fill(Palette.ground)
+                }
+            }
+            .overlay {
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .strokeBorder(refused ? Color.red.opacity(0.35) : Palette.hairline, lineWidth: 1)
+                    .allowsHitTesting(false)
+            }
+            .shadow(color: .black.opacity(0.06), radius: 24, y: 8)
+            .modifier(Shake(travel: shake))
+            // Keep the field fixed as the shared card grows downwards.
+            .frame(height: Self.fieldHeight, alignment: .top)
             // Lifted a little above centre: dead centre reads as low,
             // because the strip at the top isn't part of what the eye is
             // measuring.
@@ -84,28 +93,6 @@ struct Omnibox: View {
             .frame(height: 22)
             .padding(.horizontal, 22)
             .padding(.vertical, 14)
-            .background {
-                ZStack {
-                    // A slow, almost invisible breath under the field. It is
-                    // the only thing on an empty tab, and a thing that never
-                    // moves at all reads as a picture of an app rather than
-                    // an app.
-                    Breath()
-
-                    RoundedRectangle(cornerRadius: 14, style: .continuous)
-                        .fill(Palette.ground)
-                }
-            }
-            .overlay(
-                RoundedRectangle(cornerRadius: 14, style: .continuous)
-                    .strokeBorder(
-                        refused ? Color.red.opacity(0.35) : Palette.hairline,
-                        lineWidth: 1
-                    )
-                    .allowsHitTesting(false)
-            )
-            .shadow(color: .black.opacity(0.06), radius: 24, y: 8)
-            .modifier(Shake(travel: shake))
             .onChange(of: browser.refusals) { _, _ in
                 shake = 0
                 refused = true
@@ -119,10 +106,6 @@ struct Omnibox: View {
     /// What it thinks you mean. Places you have been come with their titles;
     /// the handful of well-known addresses it starts life knowing come without
     /// the weight of one.
-    ///
-    /// It lives below the field, in an overlay, so arriving or leaving never
-    /// moves the field — and the transition that carried it in and out before
-    /// is kept, only anchored to its own top edge.
     private var list: some View {
         VStack(spacing: 0) {
             if let site = browser.siteOffer {
@@ -131,19 +114,14 @@ struct Omnibox: View {
                     .onTapGesture { _ = browser.lockSiteOffer() }
             }
             ForEach(Array(browser.offers.enumerated()), id: \.element.id) { index, offer in
-                Row(offer: offer, picked: browser.picked == index)
-                    .contentShape(Rectangle())
-                    .onTapGesture { browser.take(offer) }
+                Button { browser.take(offer) } label: {
+                    Row(offer: offer, picked: browser.picked == index)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
             }
         }
         .padding(6)
-        .background(Palette.ground, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .strokeBorder(Palette.hairline, lineWidth: 1)
-        )
-        .shadow(color: .black.opacity(0.07), radius: 20, y: 6)
-        .transition(.scale(scale: 0.98, anchor: .top).combined(with: .opacity))
     }
 
     struct Row: View {
@@ -379,6 +357,8 @@ struct AddressField: NSViewRepresentable {
         field.isBordered = false
         field.drawsBackground = false
         field.focusRingType = .none
+        field.setAccessibilityLabel("Search or enter address")
+        field.setAccessibilityHelp("Use Up and Down to choose a suggestion, then Return to open. Escape cancels.")
         field.font = .systemFont(ofSize: 15.5)
         field.textColor = Palette.NS.ink
         field.lineBreakMode = .byClipping

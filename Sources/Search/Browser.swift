@@ -56,6 +56,7 @@ final class Browser: NSObject, ObservableObject {
                 DispatchQueue.main.async { held.forEach { $0.present() } }
             }
             guard oldValue != activeID else { return }
+            if composingTab { editing = false; typed = "" }
             if editingTab != nil { cancelTabEdit() }
             // What was found belongs to the page just left; the words typed
             // go on to be looked for on this one.
@@ -293,8 +294,15 @@ final class Browser: NSObject, ObservableObject {
     /// without being asked — there is nothing else for that tab to show.
     @Published var editing = false {
         // The field put away takes its chip with it.
-        didSet { if !editing, siteChip != nil { siteChip = nil } }
+        didSet {
+            if !editing {
+                composingTab = false
+                if siteChip != nil { siteChip = nil }
+            }
+        }
     }
+    /// New Tab composes over the current page; no tab exists until submission.
+    @Published private(set) var composingTab = false
     /// The site the list offers to search, for what has been typed so far
     /// (Settings › General › Search a site from the address field).
     @Published private(set) var siteOffer: SearchSite?
@@ -1371,6 +1379,7 @@ final class Browser: NSObject, ObservableObject {
     var tabInformationWatch: AnyCancellable?
 
     func beginTabEdit(_ tab: Tab, siteInformation: Bool = false) {
+        if composingTab { editing = false; typed = "" }
         if editingTab == tab.id, !renamingTab, !siteInformation {
             tabDraft = tabCompleted
             showingTabInformation = false
@@ -1394,6 +1403,7 @@ final class Browser: NSObject, ObservableObject {
     /// Rename. The name the tab is wearing arrives selected, so typing
     /// replaces it; emptying the field gives the page its own title back.
     func beginTabRename(_ tab: Tab) {
+        if composingTab { editing = false; typed = "" }
         cancelTabEdit()
         renamingTab = true
         tabDraft = tab.label
@@ -1995,7 +2005,7 @@ final class Browser: NSObject, ObservableObject {
             if row.map(\.id) != tabs.map(\.id) { tabs = row }
             if !tabs.contains(where: { $0.id == activeID }) {
                 activeID = tabs.first { $0.pin == nil }?.id ?? tabs.first?.id
-                if activeID == nil { newTab() }
+                if activeID == nil { newBlankTab() }
             }
             splits.removeAll { pair in
                 !pair.tabs.allSatisfy { id in tabs.contains { $0.id == id } }
@@ -2592,6 +2602,23 @@ final class Browser: NSObject, ObservableObject {
     }
 
     func newTab() {
+        guard active?.isBlank == false else { newBlankTab(); return }
+        // An approved extension keeps ownership of ordinary new tabs.
+        if #available(macOS 15.4, *), active?.shy != true, Extensions.shared.newTabPage != nil {
+            newBlankTab()
+            return
+        }
+        cancelTabEdit()
+        summoning = false
+        siteChip = nil
+        typed = ""
+        editing = true
+        composingTab = true
+        focusRequest += 1
+    }
+
+    /// Internal operations need an actual empty tab, rather than a composer.
+    func newBlankTab() {
         // On a private tab, a new one is private too: ⌘T from a page that
         // keeps nothing and landing on one that keeps everything is how a
         // private search ends up in the history.
@@ -2652,6 +2679,7 @@ final class Browser: NSObject, ObservableObject {
     }
 
     func select(_ tab: Tab, floatPrevious: Bool = true) {
+        if composingTab { editing = false; typed = "" }
         if let pair = split(for: tab), activeSplit?.id == pair.id, activeID != tab.id {
             focusPane(tab)
             return
@@ -2702,6 +2730,7 @@ final class Browser: NSObject, ObservableObject {
     /// in the same order, so the two keys agree on what is in front.
     func closeFront() {
         if peekTab != nil { closePeek() }
+        else if composingTab { editing = false; typed = "" }
         else if closePanel() { return }
         else if let tab = active { close(tab) }
     }
@@ -2749,7 +2778,7 @@ final class Browser: NSObject, ObservableObject {
             if let back = (loose.isEmpty ? others : loose).max(by: { $0.touched < $1.touched }) {
                 select(back)
             } else {
-                newTab()
+                newBlankTab()
             }
             writeSession(now: true)
             return
@@ -2832,7 +2861,7 @@ final class Browser: NSObject, ObservableObject {
         // It may still reuse one of yours, in a group: that one is yours to
         // keep, and only a tab Clear made is taken away again by the undo.
         let had = Set(tabs.map(\.id))
-        newTab()
+        newBlankTab()
         lastClear = (batch, activeID.flatMap { had.contains($0) ? nil : $0 })
         for tab in onScreen where tab.id != activeID { close(tab) }
     }
@@ -3875,6 +3904,7 @@ final class Browser: NSObject, ObservableObject {
 
     /// ⌘K. Only what is open, nothing else.
     func summon() {
+        composingTab = false
         reviewing = false
         cancelTabEdit()
         summoning = true
@@ -3988,8 +4018,11 @@ final class Browser: NSObject, ObservableObject {
         summoning = false
         if case .command(let command) = offer.kind {
             command.run(on: self)
+            if command == .newTab { return }
         } else if let id = offer.tab, let tab = tabs.first(where: { $0.id == id }) {
             select(tab)
+        } else if composingTab {
+            open(offer.url, foreground: true, from: active)
         } else {
             (active ?? tabs.first)?.go(to: offer.url)
         }
@@ -4036,6 +4069,7 @@ final class Browser: NSObject, ObservableObject {
     /// ⌘L. The current address comes up selected, so typing over it replaces it
     /// and Escape puts it back.
     func edit() {
+        composingTab = false
         summoning = false
         // Never a name and password written into the address: they would be
         // on screen, and in whatever you copy from here.
@@ -4114,6 +4148,7 @@ final class Browser: NSObject, ObservableObject {
         let chosen = (picked.flatMap { offers.indices.contains($0) ? offers[$0] : nil }) ?? offers.first
         if case .command(let command) = chosen?.kind {
             command.run(on: self)
+            if command == .newTab { return }
             editing = false
             typed = ""
             picked = nil
@@ -4133,10 +4168,10 @@ final class Browser: NSObject, ObservableObject {
             refusals += 1
             return
         }
-        if aside {
+        if aside || composingTab {
             // Opened behind the page by hand, as a ⌘-clicked link is: it may
             // wait to load (Settings › Tabs › Load background tabs…).
-            open(url, foreground: front, from: active, mayWait: true)
+            open(url, foreground: (composingTab && !aside) || front, from: active, mayWait: true)
         } else {
             (active ?? tabs.first)?.go(to: url)
         }
