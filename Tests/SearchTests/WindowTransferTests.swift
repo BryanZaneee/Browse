@@ -7,9 +7,11 @@ import XCTest
 final class WindowTransferTests: XCTestCase {
     private var browsers: [Browser] = []
     private var windows: [NSWindow] = []
+    private var littleWindows: [LittleWindow] = []
 
     override func tearDown() {
-        for little in LittleWindow.all { little.close() }
+        for little in littleWindows { little.close() }
+        littleWindows = []
         for browser in browsers {
             browser.extensionPopup = "transfer-fixture"
             if let window = browser.window { Browsers.closing(window) }
@@ -174,8 +176,10 @@ final class WindowTransferTests: XCTestCase {
 
     func testCompactWindowCancelAndClosedSourcePreserveOwnership() async throws {
         let target = browser()
+        Browsers.becameKey(target)
         LittleWindow.show(URL(string: "about:blank")!, for: target, front: false)
         let little = try XCTUnwrap(LittleWindow.all.last)
+        littleWindows.append(little)
         try await dirty(little.tab)
         target.spaceID = UUID()
         var approve: (() -> Void)?
@@ -190,8 +194,10 @@ final class WindowTransferTests: XCTestCase {
     }
     func testApprovedCompactMoveClosesOnlyAfterTransfer() async throws {
         let target = browser()
+        Browsers.becameKey(target)
         LittleWindow.show(URL(string: "about:blank")!, for: target, front: false)
         let little = try XCTUnwrap(LittleWindow.all.last)
+        littleWindows.append(little)
         try await dirty(little.tab)
         target.spaceID = UUID()
         var approve: (() -> Void)?
