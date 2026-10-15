@@ -121,11 +121,12 @@
 
 Needs Settings › General › "Let a script drive Search" switched on in the
 running app. IDs are the first characters of a tab's id, as `tabs` prints
-them. With --test, talks to a SEARCH_PROBE run instead of the real one;
-with --world NAME, to a SEARCH_PROBE=NAME run, the world "Search (NAME)".
+them. With --test, talks to this checkout's owned default world;
+with --world NAME, to its named world. Build, then start with ./fresh.sh.
 """
 
 import json
+from pathlib import Path
 import os
 import socket
 import sys
@@ -137,8 +138,11 @@ def clean(text):
     return re.sub(r"[\x00-\x1f\x7f\u200e\u200f\u202a-\u202e\u2066-\u2069]", "", str(text or ""))
 
 def folder(world):
-    name = f"Search ({world})" if world else "Search"
-    return os.path.expanduser(f"~/Library/Application Support/{name}")
+    if world:
+        sys.path.insert(0, str(Path(__file__).resolve().parent / "Tests/support"))
+        from world import World
+        return str(World(world).data)
+    return os.path.expanduser("~/Library/Application Support/Browse")
 
 def ask(path, request):
     with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as s:
@@ -162,7 +166,7 @@ def main(argv):
     if "--world" in argv:
         at = argv.index("--world")
         if at + 1 >= len(argv): sys.exit("usage: bench --world NAME COMMAND …")
-        world = "".join(c for c in argv[at + 1].lower() if c.isascii() and (c.isalnum() or c == "-"))
+        world = argv[at + 1].lower()
         if world in ("", "1"): world = "test"
         argv = argv[:at] + argv[at + 2:]
     window = None

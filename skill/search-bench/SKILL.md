@@ -21,35 +21,24 @@ Every command goes to one world. Pass the same flag on every call.
 
 | Flag | Whose browser | Socket folder |
 |---|---|---|
-| `--test` | World `test` | `~/Library/Application Support/Browse (test)/` |
-| `--world NAME` | World `NAME` (lowercase letters, digits, hyphens) | `~/Library/Application Support/Browse (NAME)/` |
-| none | The installed browser they actually use | `~/Library/Application Support/Browse/` |
-
-Use a test world for any work that changes chrome, installs or removes extensions, resizes, sends real key events, or selects a tab. A `swift build` binary under `.build/` is always world `test`, even with no `SEARCH_PROBE`. `./fresh.sh` launches `build/Browse.app` with `SEARCH_PROBE` set, which is also a test world.
-
-`select`, `key`, `resize`, and `ext-answer` fail on the installed browser. `--yes` skips an extension's install dialog only on a test run.
-
-On the installed browser, only when they asked you to drive that window: `tabs`, `probe`, and page commands against bench tabs. Leave `ui`, `select`, `key`, `resize`, and every `ext-*` command for a test world unless they named that change on their own browser. `look` and `sidebar` are saved preferences.
+| `--test` | This checkout's `test` world | `python3 Tests/support/world.py info` reports it |
+| `--world NAME` | This checkout's named world | `python3 Tests/support/world.py info --world NAME` |
+| none | Installed Browse, only with explicit user authorization | `~/Library/Application Support/Browse/` |
 
 ## Get a test world listening
 
-One process per world. Quit a process only after its executable path is this repo's `build/Browse.app` or a `.build/` binary, or its environment contains `SEARCH_PROBE`. Leave any installed browser alone. `killall`, quitting by process name, and `osascript` quit may hit another app.
+1. Build with `./build.sh debug`.
+2. Run `./fresh.sh` (fresh default world), or `./fresh.sh again --world NAME` to retain that world's files/settings/cookies. The launcher copies the bundle, assigns an owned bundle identity and starts it hidden with bench enabled.
+3. Use `./bench --test tabs`, or `./bench --world NAME tabs`. Keep the same flag on every call.
+4. Quit with `./bench --world NAME quit`, wait for the owned process to exit, then `./fresh.sh wipe --world NAME` when its fixtures are no longer needed.
 
-1. `./bench --test tabs` (or `--world NAME`). A tab list means that world is listening. Do not launch another.
-2. If it prints `Search isn't listening`:
-   - Nothing running for that world: `defaults write SUITE bench -bool true`, then `./fresh.sh again`. For a named world, `SEARCH_PROBE=NAME ./fresh.sh again`.
-   - A test process is up but the socket is dead: write the default, terminate that pid, then `./fresh.sh again`. The switch is read at launch.
-3. Retry `./bench --test tabs` until it prints. Launch takes a moment.
-4. The suite is `com.bryanzaneee.browse.test`, or `com.bryanzaneee.browse.test.NAME` for a named world.
+The launcher rejects a live world or another runner's ownership lease. Never use `killall`, process-name quits, or a real profile as a fallback. Direct development binaries/bundles refuse launch without an owned test bundle; `SEARCH_PROBE` alone is insufficient.
 
-`./fresh.sh` with no argument deletes that world's folder, settings suite, and WebKit store, then opens it. The suite delete clears the `bench` switch, so a wipe has to be followed by the defaults write, a quit of the process it just opened, and `./fresh.sh again`. Wipe only when they asked for a clean browser.
+`./fresh.sh again --world NAME --visible` opens a disposable manual-review window with bench disabled. Quit that copy through its menu before cleanup. Hidden probes reject commands after appearing onscreen.
 
-If `./bench tabs` (no flag) is not listening, ask them to turn on **Settings › General › Let a script drive Search**. Do not write defaults for the installed app.
+Each world owns its app files, defaults and WebKit container. Cleanup removes only those recorded namespaces, including cookies; Space IDs in fixtures never become deletion paths. Test credentials and bench consent are memory-only and disappear at exit. Clipboard factories are redirected to named test boards, including WebKit requests; unsupported macOS factories fail closed. Native messaging hosts must be fixtures inside the world. These test seams do not validate real keychain/password-manager integration.
 
-`./fresh.sh` builds `build/Browse.app` when that bundle is missing. It opens a world
-whose `bench` switch is on, hidden, since a test run that comes to the front trips the
-probe's guard and then refuses every command for the rest of that run. Write the switch
-before launching, not after, or the world opens in front and has to be thrown away.
+Do not copy real profiles, credentials or page content into fixtures. See [test isolation](../../docs/TEST-ISOLATION.md) for checks and platform limitations.
 
 ## Tabs that are not theirs
 

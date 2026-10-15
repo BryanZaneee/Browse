@@ -47,6 +47,14 @@ enum Vault {
     /// password saved while trying something never sits among the real ones.
     private static let label = Store.world.map { "Browse (\($0))" } ?? "Browse"
 
+    // Synthetic probe credentials stay in this process, never the login keychain.
+    private static var rehearsal: [Login] = []
+    private static let rehearsalLock = NSLock()
+    private static var testLogins: [Login] {
+        rehearsalLock.lock(); defer { rehearsalLock.unlock() }
+        return rehearsal
+    }
+
     // MARK: - reading
 
     /// The keychain will list many items, or hand over one secret — not
@@ -58,7 +66,8 @@ enum Vault {
     /// What is kept for a host, exactly. See `logins(matching:)` for the
     /// version that also looks across a site's subdomains.
     static func logins(for host: String) -> [Login] {
-        rows(where: [kSecAttrServer as String: host]).compactMap(login(from:))
+        if Store.testing { return testLogins.filter { $0.host == host } }
+        return rows(where: [kSecAttrServer as String: host]).compactMap(login(from:))
     }
 
     /// The keychain matches a server name exactly, and a sign-in rarely lives
@@ -66,6 +75,7 @@ enum Vault {
     /// password was kept for example.com. So the site is matched as a site:
     /// the host first, then anything sharing its registrable domain.
     static func logins(matching host: String) -> [Login] {
+        if Store.testing { return testLogins.filter { registrable($0.host) == registrable(host) }.sorted { ($0.used ?? .distantPast) > ($1.used ?? .distantPast) } }
         let domain = registrable(host)
         let exact = logins(for: host)
         let wider = rows(where: [:])
@@ -78,7 +88,8 @@ enum Vault {
     /// is `secret(of:)`, a call of its own, and only when it is asked for.
     /// Read on demand and never kept in a property.
     static func all() -> [Kept] {
-        rows(where: [:]).compactMap(kept(from:))
+        if Store.testing { return testLogins.map { Kept(host: $0.host, user: $0.user, used: $0.used, clear: $0.clear) }.sorted { $0.host == $1.host ? $0.user < $1.user : $0.host < $1.host } }
+        return rows(where: [:]).compactMap(kept(from:))
             .sorted { $0.host == $1.host ? $0.user < $1.user : $0.host < $1.host }
     }
 
@@ -104,6 +115,7 @@ enum Vault {
 
     /// One item's secret, by the two things that name it.
     private static func secret(host: String, user: String) -> String? {
+        if Store.testing { return testLogins.first { $0.host == host && $0.user == user }?.password }
         var out: CFTypeRef?
         let status = SecItemCopyMatching([
             kSecClass as String: kSecClassInternetPassword,
@@ -170,6 +182,13 @@ enum Vault {
               let data = password.data(using: .utf8)
         else { return false }
 
+        if Store.testing {
+            rehearsalLock.lock(); defer { rehearsalLock.unlock() }
+            rehearsal.removeAll { $0.host == host && $0.user == user }
+            rehearsal.append(Login(host: host, user: user, password: password, used: used, clear: clear))
+            return true
+        }
+
         // Ours only. Server and account alone also match what other apps
         // keep for the same site — git's token for github.com under your
         // username — and an update would write this password over it.
@@ -205,6 +224,7 @@ enum Vault {
     }
 
     static func forget(host: String, user: String) {
+        if Store.testing { rehearsalLock.lock(); defer { rehearsalLock.unlock() }; rehearsal.removeAll { $0.host == host && $0.user == user }; return }
         SecItemDelete([
             kSecClass as String: kSecClassInternetPassword,
             kSecAttrServer as String: host,
@@ -230,6 +250,7 @@ enum Vault {
     /// A password is shown only to the person the Mac belongs to. Touch ID,
     /// the watch, or the account password — whatever the Mac itself takes.
     static func prove(_ reason: String, _ done: @escaping (Bool) -> Void) {
+        if Store.testing { done(true); return }
         let context = LAContext()
         var trouble: NSError?
         guard context.canEvaluatePolicy(.deviceOwnerAuthentication, error: &trouble) else {

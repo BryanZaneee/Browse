@@ -11,6 +11,8 @@ in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased
 
+- Isolate development test worlds, including preferences, website storage, synthetic credentials and clipboard access; refuse cleanup of live or unowned worlds.
+
 - Restore executable and app-bundle builds, including the Browse window icon in the Icon Composer asset.
 
 ### Added

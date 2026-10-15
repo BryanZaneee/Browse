@@ -19,6 +19,7 @@ struct SearchApp: App {
     private var browser: Browser { front.browser ?? SceneSlot.shared.browser }
 
     init() {
+        precondition(!Store.testing || Store.ownContainer, "Launch development builds with ./fresh.sh; an owned test bundle is required.")
         // Settings › General › Start with a fresh window: the files are cut
         // down before any window reads its row from them.
         if Store.settings.bool(forKey: Preferences.freshKey) {

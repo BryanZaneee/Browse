@@ -9,27 +9,50 @@ import WebKit
 // make twice.
 
 enum Store {
-    /// A run is a test run if it says so, or if it is being run straight out
-    /// of the build folder rather than from an installed app. The second half
-    /// is not belt and braces: a development build launched from a terminal
-    /// once wrote over somebody's real session, and asking a person to
-    /// remember a flag is not a safeguard.
-    static var testing: Bool {
-        if ProcessInfo.processInfo.environment["SEARCH_PROBE"] != nil { return true }
-        return Bundle.main.executablePath?.contains("/.build/") == true
-    }
+    /// Development copies and XCTest never inherit the installed browser's data.
+    static let testing: Bool = {
+        let test = ProcessInfo.processInfo.environment["SEARCH_PROBE"] != nil
+            || Bundle.main.infoDictionary?["BrowseTestRoot"] != nil
+            || (Bundle.main.executablePath.map { $0.contains("/.build/") || $0.contains("/build/") } ?? false)
+            || NSClassFromString("XCTestCase") != nil
+        if test { TestPasteboard.install() }
+        return test
+    }()
 
-    /// Which test world a test run lives in. SEARCH_PROBE=1, or a run from
-    /// the build folder, is the test world, "Search (test)". SEARCH_PROBE=
-    /// <name> is a world of its own, "Search (<name>)", with settings and
-    /// WebKit stores of its own: two sessions testing at once, or a
-    /// measurement that needs a browser nobody has installed anything in,
-    /// never borrow each other's. Nil for the browser somebody is using.
-    static let world: String? = {
-        guard testing else { return nil }
-        let asked = (ProcessInfo.processInfo.environment["SEARCH_PROBE"] ?? "").lowercased()
-            .filter { ($0.isASCII && ($0.isLetter || $0.isNumber)) || $0 == "-" }
-        return asked.isEmpty || asked == "1" || asked == "test" ? "test" : asked
+    private static let unitID = (ProcessInfo.processInfo.environment["BROWSE_UNIT_ID"].flatMap(UUID.init(uuidString:)) ?? UUID()).uuidString.lowercased()
+    private static let unitWebsites: WKWebsiteDataStore = {
+        // Resume-data behavior requires a persistent store, even in XCTest.
+        let root = folder.deletingLastPathComponent()
+        let owner = ["id": unitID, "bundle": Bundle.main.bundleIdentifier ?? "", "pid": String(getpid())]
+        do {
+            try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+            try JSONSerialization.data(withJSONObject: owner).write(to: root.appendingPathComponent("webkit-owner.json"), options: .atomic)
+        } catch { fatalError("Cannot record XCTest WebKit ownership: \(error)") }
+        return WKWebsiteDataStore(forIdentifier: UUID(uuidString: unitID)!)
+    }()
+
+    static let world: String? = testing
+        ? (Bundle.main.infoDictionary?["BrowseTestWorld"] as? String ?? "unit-\(unitID)") : nil
+
+    /// Only the launcher gives a bundle its own identity and records its resources.
+    static let testRoot: URL? = {
+        guard testing, let root = Bundle.main.infoDictionary?["BrowseTestRoot"] as? String,
+              let identity = Bundle.main.bundleIdentifier,
+              identity.hasPrefix("com.bryanzaneee.browse.test."),
+              let data = try? Data(contentsOf: URL(fileURLWithPath: root).appendingPathComponent("owner.json")),
+              let owner = try? JSONSerialization.jsonObject(with: data) as? [String: String],
+              owner["bundle"] == identity, owner["root"] == root,
+              owner["world"] == world,
+              Bundle.main.bundleURL.resolvingSymlinksInPath() == URL(fileURLWithPath: root + "/Browse.app").resolvingSymlinksInPath()
+        else { return nil }
+        let url = URL(fileURLWithPath: root, isDirectory: true)
+        // /tmp is a system symlink; no resource below its owned parent may redirect elsewhere.
+        for path in [url.deletingLastPathComponent(), url, url.appendingPathComponent("data"), url.appendingPathComponent("owner.json")] {
+            guard let attrs = try? FileManager.default.attributesOfItem(atPath: path.path),
+                  attrs[.type] as? FileAttributeType != .typeSymbolicLink,
+                  attrs[.ownerAccountID] as? UInt32 == getuid() else { return nil }
+        }
+        return url
     }()
 
     /// A test run there to be weighed and timed rather than driven
@@ -48,8 +71,8 @@ enum Store {
     /// between probes the way the real one does. Wiping the test store is
     /// then as safe as wiping its folder.
     static var websites: WKWebsiteDataStore {
-        guard testing, !ownContainer else { return .default() }
-        return WKWebsiteDataStore(forIdentifier: probeStore(1))
+        guard testing else { return .default() }
+        return ownContainer ? .default() : unitWebsites
     }
 
     /// Settings › Privacy › Prevent cross-site tracking, turned off. WebKit's
@@ -82,33 +105,18 @@ enum Store {
     /// extension configuration — the ones the real browser uses, which
     /// differ from stores made by identifier in how long extension workers
     /// are let live.
-    static var ownContainer: Bool {
-        (Bundle.main.bundleIdentifier ?? "") != "com.bryanzaneee.browse"
-    }
+    static var ownContainer: Bool { testRoot != nil }
 
-    /// The fixed identifiers of a test world's WebKit stores: 1 for websites,
-    /// 2 for extensions. The test world's are 5E4C0000-0000-4000-8000-00000000000k,
-    /// the ones fresh.sh wipes; a named world puts a hash of its name (FNV-1a,
-    /// 32 bits) in place of the second and third groups of zeros, so each
-    /// keeps its own from one run to the next.
-    static func probeStore(_ kind: UInt32) -> UUID {
-        var hash: UInt32 = 0
-        if let world, world != "test" {
-            hash = 2_166_136_261
-            for byte in world.utf8 { hash = (hash ^ UInt32(byte)) &* 16_777_619 }
-        }
-        let text = String(format: "5E4C%04X-%04X-4000-8000-%012X", hash >> 16, hash & 0xFFFF, kind)
-        return UUID(uuidString: text)!
-    }
-
-    /// The app was called Office Browser until September 2026. Everything it
-    /// kept — the session, the pins, the history, what is hidden on each site
-    /// — moves to the new name the first time the new name runs, and the
-    /// settings are copied across. Nothing is left to be lost.
+    /// Test files are contained by the recorded world; installed data stays where it was.
     static let folder: URL = {
+        if testing {
+            let root = testRoot ?? FileManager.default.temporaryDirectory
+                .appendingPathComponent("browse-unit-\(unitID)")
+            return root.appendingPathComponent("data", isDirectory: true)
+        }
         let support = FileManager.default
             .urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-        return support.appendingPathComponent(world.map { "Browse (\($0))" } ?? "Browse", isDirectory: true)
+        return support.appendingPathComponent("Browse", isDirectory: true)
     }()
 
     static func file(_ name: String) -> URL {
@@ -135,8 +143,17 @@ enum Store {
         guard testing else {
             return .standard
         }
-        let suite = world == "test" ? "com.bryanzaneee.browse.test" : "com.bryanzaneee.browse.test.\(world ?? "")"
-        return UserDefaults(suiteName: suite) ?? .standard
+        if ownContainer { return .standard }
+        // A unit-test process has no app bundle. Its suite is never a production domain.
+        atexit {
+            UserDefaults.standard.removePersistentDomain(forName: "com.bryanzaneee.browse.unit.\(Store.unitID)")
+            let root = Store.folder.deletingLastPathComponent()
+            if FileManager.default.fileExists(atPath: root.appendingPathComponent("webkit-owner.json").path) {
+                try? FileManager.default.removeItem(at: Store.folder)
+            } else { try? FileManager.default.removeItem(at: root) }
+        }
+        return UserDefaults(suiteName: "com.bryanzaneee.browse.unit.\(unitID)")!
+
     }()
 
 }

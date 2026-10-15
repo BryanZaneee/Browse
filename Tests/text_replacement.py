@@ -3,42 +3,32 @@
 
 Build first (`./build.sh`), then run `python3 Tests/text_replacement.py`.
 
-WebKit keeps its text checker's switches in the app's *standard* defaults,
-the domain named by the bundle id, which a probe of the real app shares with
-the Search someone is using: turning Text Replacement off here would turn it
-off there. So the build is copied, under a bundle id of its own, and the copy
-runs hidden in a world of its own (SEARCH_PROBE). Its settings, its standard
-defaults, its WebKit folders and the copy itself are removed afterwards.
+WebKit keeps its text checker's switches in standard defaults. The shared
+World launcher gives this probe its own bundle identity and removes its
+settings, WebKit folders and copied bundle after the test.
 
 What is typed is the shortcut macOS puts in every Mac's Text Replacements,
 "omw" → "On my way!", read here and never written: a Mac without it skips
 that check. Nothing here makes, shows or brings forward a window.
 """
 
-import hashlib
 import json
 import os
-import shutil
 import socket
 import sqlite3
 import subprocess
 import sys
-import tempfile
 import threading
 import time
 from http.server import ThreadingHTTPServer, BaseHTTPRequestHandler
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-BUILT = ROOT / "build" / "Browse.app"
+sys.path.insert(0, str(ROOT / "Tests/support"))
+from world import World
+world = World("text-replacement")
 HOME = os.path.expanduser("~")
-ID = "com.bryanzaneee.browse.textcheck"
-W = f"tr-{hashlib.sha1(str(ROOT).encode()).hexdigest()[:8]}"
-SUPPORT = f"{HOME}/Library/Application Support/Browse ({W})"
-SUITE = f"com.bryanzaneee.browse.test.{W}"
-SOCK = f"{SUPPORT}/bench.sock"
-COPY = Path(tempfile.mkdtemp(prefix="tr-probe-")) / "Browse.app"
-EXE = str(COPY / "Contents" / "MacOS" / "Search")
+SUITE, SOCK = world.bundle, str(world.socket)
 
 PAGE = b"""<!doctype html><title>typing</title>
 <input id=i autocomplete=off><textarea id=t></textarea>"""
@@ -65,27 +55,8 @@ def omw():
     except sqlite3.Error:
         return None
 
-def ours():
-    """Only the copy this run made, by its own path."""
-    out = subprocess.run(["pgrep", "-f", EXE], capture_output=True, text=True).stdout.split()
-    return out
-
-def wipe():
-    subprocess.run(["rm", "-rf", SUPPORT])
-    for domain in (SUITE, ID):
-        subprocess.run(["defaults", "delete", domain], capture_output=True)
-    for folder in ("WebKit", "Caches", "HTTPStorages", "Saved Application State"):
-        name = f"{ID}.savedState" if folder == "Saved Application State" else ID
-        subprocess.run(["rm", "-rf", f"{HOME}/Library/{folder}/{name}"])
-    subprocess.run(["rm", "-f", f"{HOME}/Library/Preferences/{ID}.plist", f"{HOME}/Library/Preferences/{SUITE}.plist"])
-
-def make_copy():
-    shutil.copytree(BUILT, COPY, symlinks=True)
-    plist = str(COPY / "Contents" / "Info.plist")
-    subprocess.run(["plutil", "-replace", "CFBundleIdentifier", "-string", ID, plist], check=True)
-    (COPY / "Contents" / "embedded.provisionprofile").unlink(missing_ok=True)
-    subprocess.run(["codesign", "--force", "--deep", "-s", "-", "--entitlements", str(ROOT / "Browse.entitlements"), str(COPY)],
-                   check=True, capture_output=True)
+def ours(): return [str(pid) for pid in world.pids()]
+def wipe(): world.wipe()
 
 def cmd(req):
     with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as c:
@@ -113,11 +84,7 @@ def typed(t, tab, field, text):
 
 def launch():
     """The copy, hidden, never brought forward → a bench tab on the page."""
-    if os.path.exists(SOCK): os.remove(SOCK)
-    subprocess.run(["open", "-n", "-g", "-j", "--env", f"SEARCH_PROBE={W}", str(COPY)], check=True)
-    for _ in range(150):
-        if os.path.exists(SOCK): break
-        time.sleep(0.1)
+    world.launch()
     time.sleep(2)
     tab = cmd({"do": "open", "url": f"{BASE}/"})["id"]
     cmd({"do": "wait", "id": tab, "seconds": 10})
@@ -136,8 +103,8 @@ def quit():
 def main():
     if ours(): sys.exit("a copy from this run is already running")
     wipe()
+    world.prepare()
     for k in ["bench", "welcomed"]: subprocess.run(["defaults", "write", SUITE, k, "-bool", "true"])
-    make_copy()
     t = T()
     try:
         tab = launch()
@@ -163,7 +130,7 @@ def main():
             for field in ("i", "t"):
                 value = typed(t, tab, field, "omw ")
                 expect = mac.get("replacement", True)
-                t.ok(f"typing omw in the {'input' if field == 'i' else 'textarea'} → {value!r}",
+                t.ok(f"typing omw in the {'input' if field == 'i' else 'textarea'} matches the read-only system replacement",
                      value == (phrase + " " if expect else "omw "))
 
         if "error" not in state:
@@ -175,7 +142,7 @@ def main():
             t.ok("and the menu's tick follows", ticks.get("Text Replacement") == (not before), str(after.get("menu")))
             if phrase is not None:
                 value = typed(t, tab, "t", "omw ")
-                t.ok(f"typing omw with it off → {value!r}", value == ("omw " if before else phrase + " "))
+                t.ok("typing omw with it off matches the expected text", value == ("omw " if before else phrase + " "))
             for name in ("quotes", "dashes"):
                 on = cmd({"do": "textcheck", "id": tab, "toggle": name})
                 ticks = {m["title"]: m["on"] for m in on.get("menu", [])}
@@ -198,7 +165,6 @@ def main():
     finally:
         quit()
         wipe()
-        shutil.rmtree(COPY.parent, ignore_errors=True)
         srv.shutdown()
     print(f"{t.passed} passed, {t.failed} failed")
     sys.exit(1 if t.failed else 0)

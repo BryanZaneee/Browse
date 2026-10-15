@@ -84,7 +84,7 @@ So anyone can read exactly what a browser handling their passwords and history i
 - `swift build` — builds the command-line executable; `swift run` launches it
 - `./build.sh` — assembles a double-clickable `Browse.app` in `build/`, ad-hoc signed so it runs on your own Mac
 
-`swift build` and `swift run` still refer to the internal SwiftPM product named Search. `./build.sh` wraps it as Browse with the separate bundle ID `com.bryanzaneee.browse` and stores its files under `~/Library/Application Support/Browse/`. It does not import, rename, or modify an existing Search profile.
+`swift build` refers to the internal SwiftPM product named Search. After `./build.sh debug`, use `./fresh.sh --visible` for a disposable review window, or `./fresh.sh` for a hidden scripted test. Direct development launches refuse to open an unprepared profile. Each test world has an owned bundle identity, files, preferences and WebKit stores; installed Browse still uses `~/Library/Application Support/Browse/`. See [test isolation](docs/TEST-ISOLATION.md).
 
 A local build is ad-hoc signed, so macOS may require right-click → Open the first time. It does not check for or install updates. `./build.sh release dmg` creates archives for local inspection; `./build.sh release ship` signs and notarizes both archives, staples the DMG, and creates the signed update feed.
 

@@ -5,5 +5,5 @@ output=${1:-"$repo_root/docs/screenshots"}
 mkdir -p "$output"
 output=$(CDPATH= cd -- "$output" && pwd)
 cd "$repo_root"
-SEARCH_PROBE="tab-entry-$$" BROWSE_SCREENSHOT_DIR="$output" \
-    swift test --filter NewTabScreenshotTests
+BROWSE_SCREENSHOT_DIR="$output" \
+    python3 Tests/run-unit-tests.py --filter NewTabScreenshotTests
