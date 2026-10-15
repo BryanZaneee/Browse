@@ -73,10 +73,10 @@ final class TabAddressTests: XCTestCase {
             let address = original.address
             browser.newTab()
             spin()
-            editor.insertText("about:blank#new-tab", replacementRange: editor.selectedRange())
+            editor.insertText("data:text/html,new-tab", replacementRange: editor.selectedRange())
             try key(editor, 36, "\r")
             XCTAssertNotEqual(browser.activeID, original.id)
-            XCTAssertEqual(browser.active?.address?.absoluteString, "about:blank#new-tab")
+            XCTAssertEqual(browser.active?.address?.absoluteString, "data:text/html,new-tab")
             XCTAssertEqual(original.address, address)
             XCTAssertFalse(browser.composingTab)
         }
@@ -167,7 +167,11 @@ final class TabAddressTests: XCTestCase {
             panel.setFrameOrigin(NSPoint(x: frame.minX, y: spot.maxY + 3))
             SiteCardPanel.reveal(panel, under: field, animated: true)
             XCTAssertEqual(layer.mask?.anchorPoint.y, 0, "An above-field popup unfolds upwards")
-            RunLoop.main.run(until: Date(timeIntervalSinceNow: 0.4))
+            // Hosted compositors can deliver completion after the animation's nominal duration.
+            let deadline = Date(timeIntervalSinceNow: 3)
+            while layer.mask != nil, Date() < deadline {
+                RunLoop.main.run(until: Date(timeIntervalSinceNow: 0.02))
+            }
             XCTAssertNil(layer.mask, "The settled popup must not clip later row changes")
             SiteCardPanel.reveal(panel, under: field, animated: true)
             browser.cancelTabEdit()
@@ -434,7 +438,7 @@ final class TabAddressTests: XCTestCase {
             editor.selectAll(nil)
             editor.insertText("yout", replacementRange: editor.selectedRange())
             let tab = try XCTUnwrap(browser.active)
-            tab.go(to: URL(string: "about:blank#changed")!)
+            tab.go(to: URL(string: "data:text/html,changed")!)
             spin()
             XCTAssertNil(browser.editingTab)
             XCTAssertTrue(browser.tabOffers.isEmpty)
@@ -503,9 +507,9 @@ final class TabAddressTests: XCTestCase {
             browser.siteChip = try XCTUnwrap(SiteSearch.match("red"))
             defer { browser.siteChip = nil }
             editor.selectAll(nil)
-            editor.insertText("about:blank#tab-editor", replacementRange: editor.selectedRange())
+            editor.insertText("data:text/html,tab-editor", replacementRange: editor.selectedRange())
             try key(editor, 36, "\r")
-            XCTAssertEqual(browser.active?.address?.absoluteString, "about:blank#tab-editor")
+            XCTAssertEqual(browser.active?.address?.absoluteString, "data:text/html,tab-editor")
         }
     }
 

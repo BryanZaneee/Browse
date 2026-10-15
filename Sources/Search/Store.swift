@@ -123,20 +123,6 @@ enum Store {
         folder.appendingPathComponent(name)
     }
 
-    /// A file that didn't decode is set aside rather than overwritten the
-    /// next time something is saved over it — bookmarks, history and a
-    /// session are the kind of thing nobody wants to lose to a bad read with
-    /// no trace of what was there. Failing to move it is fine: the read
-    /// already came back empty either way, and there's nothing further to
-    /// do about a folder that won't take a rename.
-    static func quarantine(_ file: URL) {
-        guard FileManager.default.fileExists(atPath: file.path) else { return }
-        let stamp = Int(Date().timeIntervalSince1970)
-        let aside = file.deletingLastPathComponent()
-            .appendingPathComponent("\(file.deletingPathExtension().lastPathComponent).unreadable-\(stamp).json")
-        try? FileManager.default.moveItem(at: file, to: aside)
-    }
-
     /// Settings live apart too: a test that changes what the tabs wear or
     /// where the tabs go must not change yours.
     static let settings: UserDefaults = {
@@ -168,34 +154,115 @@ enum Store {
 /// overtaken is dropped, including when the newer one was written at once
 /// on the way out.
 enum Disk {
+    struct Issue: Equatable {
+        enum Kind { case read, recovery, save, recovered }
+        let id = UUID()
+        let file: URL
+        let kind: Kind
+        var backup: URL? = nil
+    }
+    private struct Request {
+        let turn: Int
+        let encode: @Sendable () throws -> Data
+    }
+    static let changed = Notification.Name("BrowseDiskIssuesChanged")
     private static let queue = DispatchQueue(label: "search.disk", qos: .utility)
     private static let lock = NSLock()
-    /// The newest write asked for, by file.
     nonisolated(unsafe) private static var newest: [URL: Int] = [:]
     nonisolated(unsafe) private static var count = 0
+    nonisolated(unsafe) private static var failures: [URL: Issue] = [:]
+    nonisolated(unsafe) private static var pending: [URL: Request] = [:]
+    nonisolated(unsafe) private static var blocked: Set<URL> = []
 
-    /// `encode` runs where the write does. `now` writes on the calling
-    /// thread: quitting doesn't wait for a queue.
-    static func write(_ file: URL, now: Bool = false, _ encode: @escaping @Sendable () -> Data?) {
-        lock.lock()
-        count += 1
-        let turn = count
-        newest[file] = turn
-        lock.unlock()
-        let put: @Sendable () -> Void = {
-            guard let data = encode() else { return }
-            lock.lock()
-            defer { lock.unlock() }
-            // Overtaken: something newer of this file was asked for since.
-            guard newest[file] == turn else { return }
-            try? FileManager.default.createDirectory(at: file.deletingLastPathComponent(), withIntermediateDirectories: true)
-            try? data.write(to: file, options: .atomic)
-        }
-        if now { put() } else { queue.async(execute: put) }
+    static var issues: [Issue] {
+        lock.lock(); defer { lock.unlock() }
+        return failures.values.sorted { $0.file.path < $1.file.path }
     }
 
-    /// Everything asked for so far, written — for the way out.
-    static func drain() {
-        queue.sync {}
+    static var hasUnsavedChanges: Bool {
+        lock.lock(); defer { lock.unlock() }
+        return !pending.isEmpty || !blocked.isEmpty
+    }
+
+    // Called with the lock held. Notices never include encoded data or error contents.
+    private static func report(_ issue: Issue) {
+        if let previous = failures[issue.file], previous.kind == issue.kind, previous.backup == issue.backup { return }
+        failures[issue.file] = issue
+        DispatchQueue.main.async { NotificationCenter.default.post(name: changed, object: nil) }
+    }
+
+    /// Missing is a first run; unreadable is not. Never overwrite bytes we couldn't preserve.
+    static func read<Value: Decodable>(_ type: Value.Type, from file: URL) -> Value? {
+        lock.lock(); defer { lock.unlock() }
+        let data: Data
+        do { data = try Data(contentsOf: file) }
+        catch let error as CocoaError where error.code == .fileReadNoSuchFile { return nil }
+        catch {
+            blocked.insert(file)
+            report(Issue(file: file, kind: .read))
+            return nil
+        }
+        do { return try JSONDecoder().decode(type, from: data) }
+        catch {
+            let backup = file.deletingLastPathComponent().appendingPathComponent(
+                "\(file.deletingPathExtension().lastPathComponent).unreadable-\(UUID().uuidString).json")
+            do {
+                try FileManager.default.moveItem(at: file, to: backup)
+                report(Issue(file: file, kind: .recovered, backup: backup))
+            } catch {
+                blocked.insert(file)
+                report(Issue(file: file, kind: .recovery))
+            }
+            return nil
+        }
+    }
+
+    static func write(_ file: URL, now: Bool = false, _ encode: @escaping @Sendable () throws -> Data) {
+        lock.lock()
+        count += 1
+        let request = Request(turn: count, encode: encode)
+        newest[file] = count
+        lock.unlock()
+        if now { put(file, request) } else { queue.async { put(file, request) } }
+    }
+
+    private static func put(_ file: URL, _ request: Request) {
+        // Encoding a snapshot may be expensive; don't hold the filesystem lock while doing it.
+        let data = Result { try request.encode() }
+        lock.lock(); defer { lock.unlock() }
+        guard newest[file] == request.turn else { return }
+        pending[file] = request
+        guard !blocked.contains(file) else { return }
+        do {
+            let bytes = try data.get()
+            try FileManager.default.createDirectory(at: file.deletingLastPathComponent(), withIntermediateDirectories: true)
+            try bytes.write(to: file, options: .atomic)
+            pending.removeValue(forKey: file)
+            if failures[file]?.kind == .save { failures.removeValue(forKey: file) }
+        } catch { report(Issue(file: file, kind: .save)) }
+    }
+
+    /// Retry only the latest failed snapshot; a newer request still wins.
+    static func retry() {
+        drain()
+        lock.lock()
+        let requests = pending
+        lock.unlock()
+        for (file, request) in requests { put(file, request) }
+    }
+
+    static func drain() { queue.sync {} }
+
+    /// Unit fixtures must not retain failed closures or blocks after their directory is removed.
+    static func clearTestState(in folder: URL) {
+        precondition(Store.testing)
+        drain()
+        lock.lock(); defer { lock.unlock() }
+        for file in Set(failures.keys).union(pending.keys).union(newest.keys) where file.deletingLastPathComponent().path == folder.path {
+            failures.removeValue(forKey: file)
+            pending.removeValue(forKey: file)
+            newest.removeValue(forKey: file)
+            blocked.remove(file)
+        }
     }
 }

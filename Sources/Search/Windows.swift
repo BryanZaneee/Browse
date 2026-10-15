@@ -318,7 +318,7 @@ enum Browsers {
         for browser in saved.dropFirst() { records.append(record(of: browser, rows: true)) }
         // Frozen before it goes to the Disk queue.
         let snapshot = records
-        Disk.write(file, now: now) { try? JSONEncoder().encode(snapshot) }
+        Disk.write(file, now: now) { try JSONEncoder().encode(snapshot) }
     }
 
     /// Soon, not now: a window being dragged moves many times a second.
@@ -333,8 +333,7 @@ enum Browsers {
     private static var saving = false
 
     static func read() -> [WindowRecord] {
-        guard let data = try? Data(contentsOf: file) else { return [] }
-        return (try? JSONDecoder().decode([WindowRecord].self, from: data)) ?? []
+        Disk.read([WindowRecord].self, from: file) ?? []
     }
 
     /// Start with a fresh window (see Session.startFresh): one window, the
@@ -344,7 +343,7 @@ enum Browsers {
         let records = read()
         guard records.count > 1 else { return }
         let first = [records[0]]
-        Disk.write(file, now: true) { try? JSONEncoder().encode(first) }
+        Disk.write(file, now: true) { try JSONEncoder().encode(first) }
     }
 
     /// At launch, once the first window is up.

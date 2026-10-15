@@ -68,16 +68,7 @@ enum Session {
     }
 
     static func read(space: UUID = Space.firstID) -> Shape {
-        let file = file(space)
-        guard let data = try? Data(contentsOf: file) else { return Shape(tabs: [], active: 0) }
-        guard let shape = try? JSONDecoder().decode(Shape.self, from: data) else {
-            // A file that's there but won't decode is not the same as no
-            // file: something wrote it, and overwriting it on the next save
-            // without a trace is how yesterday's tabs actually disappear.
-            Store.quarantine(file)
-            return Shape(tabs: [], active: 0)
-        }
-        return shape
+        Disk.read(Shape.self, from: file(space)) ?? Shape(tabs: [], active: 0)
     }
 
     /// `now` writes on the calling thread. Quitting doesn't wait for a
@@ -85,7 +76,7 @@ enum Session {
     /// session that may never reach the disk.
     static func write(now: Bool = false, space: UUID = Space.firstID, _ shape: Shape) {
         // One after another, the newest last (see Disk).
-        Disk.write(file(space), now: now) { try? JSONEncoder().encode(shape) }
+        Disk.write(file(space), now: now) { try JSONEncoder().encode(shape) }
     }
 }
 

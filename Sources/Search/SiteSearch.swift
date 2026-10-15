@@ -102,7 +102,7 @@ enum SiteSearch {
 
     static var learned: [SearchSite] {
         if let loaded { return loaded }
-        let read = (try? Data(contentsOf: file)).flatMap { try? JSONDecoder().decode([SearchSite].self, from: $0) } ?? []
+        let read = Disk.read([SearchSite].self, from: file) ?? []
         // Named by their address, whatever an earlier build wrote.
         let kept = read.filter { Keyword.accepts($0.template) && sameSite($0.template, $0.host) }
             .map { SearchSite(name: $0.host, host: $0.host, template: $0.template) }
@@ -156,7 +156,7 @@ enum SiteSearch {
         if list.count > most { list.removeFirst(list.count - most) }
         loaded = list
         let snapshot = list
-        Disk.write(file) { try? JSONEncoder().encode(snapshot) }
+        Disk.write(file) { try JSONEncoder().encode(snapshot) }
     }
 
     /// Forgotten, all of them: with the history (Browser.clearHistory).

@@ -564,18 +564,14 @@ final class Bookmarks: ObservableObject {
     }
 
     private func load() {
-        guard let data = try? Data(contentsOf: Bookmarks.file) else { return }
-        guard let list = try? JSONDecoder().decode([Bookmark].self, from: data) else {
-            Store.quarantine(Bookmarks.file)
-            return
-        }
+        guard let list = Disk.read([Bookmark].self, from: Bookmarks.file) else { return }
         roots = list
     }
 
     private func save() {
         let snapshot = roots
         // One after another, the newest last (see Disk).
-        Disk.write(Bookmarks.file) { try? JSONEncoder().encode(snapshot) }
+        Disk.write(Bookmarks.file) { try JSONEncoder().encode(snapshot) }
     }
 }
 

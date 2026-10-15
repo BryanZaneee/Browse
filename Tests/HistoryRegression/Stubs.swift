@@ -50,8 +50,16 @@ enum Store {
 // History schedules its saves itself. Keep this runner's isolated write
 // synchronous so savedFile() can inspect the bytes after that delay.
 enum Disk {
-    static func write(_ file: URL, now: Bool = false, _ encode: @escaping @Sendable () -> Data?) {
-        guard let data = encode() else { return }
+    static func read<Value: Decodable>(_ type: Value.Type, from file: URL) -> Value? {
+        guard let data = try? Data(contentsOf: file) else { return nil }
+        guard let value = try? JSONDecoder().decode(type, from: data) else {
+            Store.quarantine(file)
+            return nil
+        }
+        return value
+    }
+    static func write(_ file: URL, now: Bool = false, _ encode: @escaping @Sendable () throws -> Data) {
+        guard let data = try? encode() else { return }
         try? FileManager.default.createDirectory(at: file.deletingLastPathComponent(), withIntermediateDirectories: true)
         try? data.write(to: file, options: .atomic)
     }

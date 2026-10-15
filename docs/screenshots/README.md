@@ -40,3 +40,16 @@ The GIF samples the live native views across New Tab, typing and Escape (16 fram
 The current Browser/native-field regression run passed 47 tests in an owned disposable preview worktree with the known Store missing return repaired locally. This final run included the expanded screenshot/GIF fixture and the background Home draft, split/rename and move-to-Space regressions. The PR's unmodified build remains blocked by that baseline error ([#9](https://github.com/BryanZaneee/Browse/issues/9)); the local repair is not part of this feature. A separately identified, ad-hoc signed dev preview was also launched with its own test-world fallback and the tab/dropdown placement checked visually. No normal Browse profile was used.
 
 Keep the PR draft pending build/isolation gates [#9](https://github.com/BryanZaneee/Browse/issues/9)/[#10](https://github.com/BryanZaneee/Browse/issues/10) and remaining full-app acceptance: plus/menu/Command-T, URL/search/history submission, cancellation, existing-page form preservation, private tabs, approved extension overrides, top/sidebar/split layouts, IME, VoiceOver and Reduce Motion. Capture a full-app interaction recording before marking ready. The new regression coverage checks draft identity/placement, cancellation, submission, private store separation, background submission and native keyboard completion; it does not replace those full-app checks.
+
+
+## Saved-data notices
+
+`Tests/PersistenceFixture/run.sh` captures the production AppKit alerts with synthetic `windows.json` failures in an isolated XCTest process. Before this change, save errors and failed quarantine had no notice. These are native component renders; transparent window material is flattened onto `NSColor.windowBackgroundColor` using the selected appearance. Captured on macOS 27.0.1 arm64. No real saved-data contents are used, and no motion was changed.
+
+| Notice | Light | Dark |
+| --- | --- | --- |
+| Save failed | ![Save warning](persistence-save-light.png) | ![Save warning, dark](persistence-save-dark.png) |
+| Original preserved | ![Recovery notice](persistence-recovery-light.png) | ![Recovery notice, dark](persistence-recovery-dark.png) |
+| Quit decision | ![Keep working or quit](persistence-quit-light.png) | ![Keep working or quit, dark](persistence-quit-dark.png) |
+
+The quit alert defaults to Keep Working. Unit tests exercise cancellation, explicit quit, retry and notice identity; manual VoiceOver and real disk-full/hardware interruption remain separate acceptance checks.
