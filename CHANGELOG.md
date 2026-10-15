@@ -11,6 +11,8 @@ in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased
 
+- Check pull requests with isolated Swift tests, history and extension rules, and development bundle assembly on Apple Silicon and Intel.
+
 - Isolate development test worlds, including preferences, website storage, synthetic credentials and clipboard access; refuse cleanup of live or unowned worlds.
 
 - Restore executable and app-bundle builds, including the Browse window icon in the Icon Composer asset.
