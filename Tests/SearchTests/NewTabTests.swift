@@ -229,6 +229,23 @@ final class NewTabTests: XCTestCase {
         XCTAssertEqual(browser.editingTab, draft.id)
     }
 
+    func testMovingTheSourceToAnotherSpaceCancelsItsDraft() {
+        let (browser, original) = page(privateMode: true)
+        let enabled = browser.prefs.usesSpaces
+        defer { browser.prefs.usesSpaces = enabled }
+        browser.prefs.usesSpaces = true
+        let destination = Space(id: UUID(), name: "Fixture", colour: 0)
+        browser.spaces.append(destination)
+        browser.newTab()
+        let draft = browser.editingTab
+        browser.move(original, toSpace: destination.id)
+        XCTAssertFalse(browser.composingTab)
+        XCTAssertNil(browser.editingTab)
+        XCTAssertFalse(browser.tabs.contains { $0.id == draft || $0.id == original.id })
+        XCTAssertNotEqual(browser.activeID, original.id)
+        XCTAssertEqual(browser.parked[destination.id]?.tabs.first?.id, original.id)
+    }
+
     func testHomeAddressDraftSurvivesNewTabCancellation() {
         let browser = Browser(record: WindowRecord())
         browser.typed = "unfinished address"
@@ -236,6 +253,24 @@ final class NewTabTests: XCTestCase {
         browser.escapeTabEdit()
         XCTAssertEqual(browser.typed, "unfinished address")
         XCTAssertTrue(browser.fieldShowing)
+    }
+
+    func testPendingDraftCannotSplitOrLeaveARenameForARemovedTab() throws {
+        let (browser, original) = page()
+        let enabled = browser.prefs.splitView
+        defer { browser.prefs.splitView = enabled }
+        browser.prefs.splitView = true
+        browser.newTab()
+        let draft = try XCTUnwrap(browser.tabs.last)
+        browser.pair(draft, with: original, onLeft: false)
+        XCTAssertTrue(browser.splits.isEmpty)
+        XCTAssertEqual(browser.activeID, original.id)
+        XCTAssertTrue(browser.composingTab)
+        browser.beginTabRename(draft)
+        XCTAssertNil(browser.editingTab)
+        XCTAssertFalse(browser.composingTab)
+        XCTAssertFalse(browser.tabs.contains { $0.id == draft.id })
+        XCTAssertEqual(browser.activeID, original.id)
     }
 
     func testSearchAndKeyboardSelectionUseANewTab() throws {
@@ -259,6 +294,19 @@ final class NewTabTests: XCTestCase {
         XCTAssertEqual(browser.activeID, original.id)
         XCTAssertEqual(browser.tabs.last?.address?.absoluteString, "about:blank#background")
         XCTAssertFalse(browser.composingTab)
+    }
+
+    func testBackgroundSubmissionPreservesTheHomeAddressDraft() {
+        let browser = Browser(record: WindowRecord())
+        let original = browser.activeID
+        browser.typed = "unfinished address"
+        browser.newTab()
+        browser.changeTabDraft("about:blank#background")
+        browser.commitTabEdit(aside: true)
+        XCTAssertEqual(browser.activeID, original)
+        XCTAssertEqual(browser.typed, "unfinished address")
+        XCTAssertTrue(browser.fieldShowing)
+        XCTAssertEqual(browser.tabs.last?.address?.absoluteString, "about:blank#background")
     }
 
     func testAddressEditAndSwitcherDoNotInheritNewTabIntent() {

@@ -1344,7 +1344,7 @@ struct ContentView: View {
         // theirs as before.
         if event.keyCode == 36 || event.keyCode == 76, browser.composingTab,
            let window, event.window === window,
-           let editor = window.firstResponder as? NSTextView,
+           let editor = window.firstResponder as? NSTextView, !editor.hasMarkedText(),
            let field = editor.delegate as? NSTextField,
            let coordinator = field.delegate as? TabAddressField.Coordinator, coordinator.browser === browser {
             browser.commitTabEdit(aside: true, front: shifted)

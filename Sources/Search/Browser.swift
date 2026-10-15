@@ -1403,6 +1403,7 @@ final class Browser: NSObject, ObservableObject {
     /// replaces it; emptying the field gives the page its own title back.
     func beginTabRename(_ tab: Tab) {
         cancelTabEdit()
+        guard tabs.contains(where: { $0.id == tab.id }) else { return }
         renamingTab = true
         tabDraft = tab.label
         editingTab = tab.id
@@ -1433,7 +1434,7 @@ final class Browser: NSObject, ObservableObject {
             if aside, !front, prefs.lazyTabs { tab.restore(url: url, title: "") }
             else { tab.go(to: url) }
             editing = false
-            typed = ""
+            if !aside || front { typed = "" }
             rememberSession()
         } else {
             tab.go(to: url)
@@ -2382,6 +2383,7 @@ final class Browser: NSObject, ObservableObject {
     /// own, and the pin stays where it is (see splittable).
     func canSplit(_ first: Tab, with second: Tab) -> Bool {
         prefs.splitView && first.id != second.id && !first.bench && !second.bench
+            && (!composingTab || (editingTab != first.id && editingTab != second.id))
             && first.shy == second.shy
             && tabs.contains(where: { $0.id == first.id })
             && tabs.contains(where: { $0.id == second.id })
@@ -3104,6 +3106,7 @@ final class Browser: NSObject, ObservableObject {
 
     @discardableResult
     private func finishMove(_ tab: Tab, toSpace id: UUID) -> Bool {
+        if composingTab { cancelTabEdit() }
         guard prefs.usesSpaces, id != spaceID,
               let destination = spaces.first(where: { $0.id == id }),
               let index = tabs.firstIndex(where: { $0.id == tab.id })
