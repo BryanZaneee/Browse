@@ -86,14 +86,14 @@ final class LittleWindow: NSObject, NSWindowDelegate {
     /// pins), and in front; the small window goes.
     func keep() {
         // Into the window in front, whichever that is now.
-        guard let browser = Browsers.front ?? browser else { return }
-        kept = true
-        // As a tab moved from another window is: this window's delegate,
-        // and this window's space, with its sign-ins.
-        browser.receive(tab)
-        window.close()
-        (browser.window ?? NSApp.windows.first { $0.contentView != nil && !($0 is NSPanel) && $0 !== window })?
-            .makeKeyAndOrderFront(nil)
+        guard let browser = Browsers.front ?? browser, browser.isOpen else { return }
+        browser.receive(tab, valid: { [weak self] in
+            guard let self else { return false }
+            return !self.kept && LittleWindow.open.contains(where: { $0 === self })
+        }, detach: { [weak self] in self?.kept = true }, then: { [weak self, weak browser] in
+            self?.window.close()
+            browser?.window?.makeKeyAndOrderFront(nil)
+        })
     }
 
     func windowWillClose(_ notification: Notification) {

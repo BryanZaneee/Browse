@@ -285,8 +285,11 @@ final class Tab: ObservableObject, Identifiable {
     /// one, set when the new page has arrived.
     @Published private(set) var committed: URL?
     var pageAddress: URL? { committed ?? address }
+    private(set) var navigationRevision: UInt64 = 0
 
     func didCommit() {
+        navigationRevision &+= 1
+        reader = false
         video.reset()
         // A new document: whatever the old one waited for under its field
         // went with it.
@@ -332,6 +335,9 @@ final class Tab: ObservableObject, Identifiable {
 
     /// True while the page has been stripped back to its article.
     @Published private(set) var reader = false
+    @Published var readerLook = Reader.look {
+        didSet { if reader { built?.evaluateInSearch(Reader.apply(readerLook)) } }
+    }
 
     /// Leaving reading mode reloads rather than putting the old markup back:
     /// restoring the HTML gives you a page that looks right and does nothing,
@@ -347,9 +353,12 @@ final class Tab: ObservableObject, Identifiable {
             done(true)
             return
         }
-        web.evaluateJavaScript(Reader.script) { [weak self] answer, _ in
+        let page = web, revision = navigationRevision
+        page.evaluateJavaScript(Reader.apply(readerLook) + Reader.script, in: nil, in: Web.world) { [weak self, weak page] result in
+            guard let self, self.built === page, self.navigationRevision == revision else { done(false); return }
+            let answer = try? result.get()
             let worked = (answer as? String) == "read"
-            if worked { self?.reader = true }
+            if worked { self.reader = true }
             done(worked)
         }
     }
@@ -684,7 +693,10 @@ final class Tab: ObservableObject, Identifiable {
                 MainActor.assumeIsolated { self?.progress = self?.built?.estimatedProgress ?? 0 }
             },
             web.observe(\.isLoading, options: [.new]) { [weak self] _, _ in
-                MainActor.assumeIsolated { self?.loading = self?.built?.isLoading ?? false }
+                MainActor.assumeIsolated {
+                    self?.navigationRevision &+= 1
+                    self?.loading = self?.built?.isLoading ?? false
+                }
             },
             web.observe(\.canGoBack, options: [.new]) { [weak self] _, _ in
                 MainActor.assumeIsolated { self?.canGoBack = self?.built?.canGoBack ?? false }

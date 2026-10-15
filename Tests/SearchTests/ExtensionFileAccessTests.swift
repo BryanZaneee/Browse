@@ -35,11 +35,21 @@ final class ExtensionFileAccessTests: XCTestCase {
         XCTAssertTrue(context.hasAccess(to: site), "a named site was not given")
         XCTAssertFalse(context.grantedPermissionMatchPatterns.keys.contains { Extensions.reachesFiles($0) })
 
-        // A file pattern granted some other way is still outweighed by the fence.
-        context.setPermissionStatus(.grantedExplicitly, for: try WKWebExtension.MatchPattern(string: "file:///*"))
-        XCTAssertTrue(context.hasAccess(to: file), "WebKit no longer gives a granted file pattern: this test proves nothing")
-        Extensions.fence(context)
-        XCTAssertFalse(context.hasAccess(to: file), "the fence let a file through")
+        // Use a fresh context: the original has two overlapping file denials.
+        // Prove WebKit grants file access before checking that our fence revokes it.
+        let control = WKWebExtensionContext(for: try await WKWebExtension(resourceBaseURL: folder))
+        // WebKit 51ea20f9818e added a separate default-off file gate (see TEST-ISOLATION.md).
+        // Enable that gate only on this unloaded synthetic control, so our fence is tested.
+        let fileGate = NSSelectorFromString("_setHasAccessToFileURLs:")
+        if control.responds(to: fileGate) {
+            typealias SetFileAccess = @convention(c) (AnyObject, Selector, Bool) -> Void
+            let setAccess = unsafeBitCast(control.method(for: fileGate), to: SetFileAccess.self)
+            setAccess(control, fileGate, true)
+        }
+        control.setPermissionStatus(.grantedExplicitly, for: try WKWebExtension.MatchPattern(string: "file:///*"))
+        XCTAssertTrue(control.hasAccess(to: file), "WebKit no longer gives a granted file pattern: this test proves nothing")
+        Extensions.fence(control)
+        XCTAssertFalse(control.hasAccess(to: file), "the fence let a file through")
     }
 
     func testOnlyFilePatternsReachFiles() throws {
