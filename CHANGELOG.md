@@ -11,6 +11,9 @@ in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased
 
+- Native messaging keeps final replies when a host exits, hears fast replies, and stops hosts that send oversized frames. Adapted from [Search #483](https://github.com/driceroland/Search/pull/483) by [@AllDaGearNoIdea](https://github.com/AllDaGearNoIdea).
+- Check pull requests with isolated Swift tests, history and extension rules, and development bundle assembly on Apple Silicon and Intel.
+
 - Isolate development test worlds, including preferences, website storage, synthetic credentials and clipboard access; refuse cleanup of live or unowned worlds.
 
 - Restore executable and app-bundle builds, including the Browse window icon in the Icon Composer asset.
