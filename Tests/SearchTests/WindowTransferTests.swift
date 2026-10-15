@@ -184,8 +184,15 @@ final class WindowTransferTests: XCTestCase {
         target.spaceID = UUID()
         var approve: (() -> Void)?
         target.confirmWindowMove = { approve = $0 }
+        // Loading the compact fixture yields to AppKit's pending key-window
+        // events. Select the destination at the action boundary, as Keep does.
+        Browsers.becameKey(target)
+        XCTAssertTrue(Browsers.front === target)
+        XCTAssertFalse(little.tab.web.isLoading)
+        let revision = little.tab.navigationRevision
         little.keep()
         try await wait { approve != nil }
+        XCTAssertNotNil(approve, "Keep approval missing; revision \(revision) -> \(little.tab.navigationRevision), loading=\(little.tab.web.isLoading), intended front=\(Browsers.front === target)")
         XCTAssertTrue(LittleWindow.all.contains { $0 === little })
         XCTAssertFalse(target.tabs.contains { $0 === little.tab })
         little.close()
@@ -202,8 +209,15 @@ final class WindowTransferTests: XCTestCase {
         target.spaceID = UUID()
         var approve: (() -> Void)?
         target.confirmWindowMove = { approve = $0 }
+        // Loading the compact fixture yields to AppKit's pending key-window
+        // events. Select the destination at the action boundary, as Keep does.
+        Browsers.becameKey(target)
+        XCTAssertTrue(Browsers.front === target)
+        XCTAssertFalse(little.tab.web.isLoading)
+        let revision = little.tab.navigationRevision
         little.keep()
         try await wait { approve != nil }
+        XCTAssertNotNil(approve, "Keep approval missing; revision \(revision) -> \(little.tab.navigationRevision), loading=\(little.tab.web.isLoading), intended front=\(Browsers.front === target)")
         approve?()
         XCTAssertFalse(LittleWindow.all.contains { $0 === little })
         XCTAssertTrue(target.tabs.contains { $0 === little.tab })
