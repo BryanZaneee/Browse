@@ -55,7 +55,7 @@ Keep short-lived branches into `main`, with no extra develop branch or automatio
 
 | Unit / suggested commit title | Scope and candidate | Required evidence |
 |---|---|---|
-| F01 `fix: restore Browse builds` | Missing Store return and leftover icon-generator references. One PR for a working executable and app bundle, with distinct commits if useful. | Clean Swift build and unsigned `build.sh debug`; inspect generated Browse icons. |
+| F01 `fix: restore Browse builds` | Missing Store return and leftover icon-generator references. Repair implemented for #9; validation and independent review precede merge. | Clean Swift build and unsigned `build.sh debug`; inspect generated Browse icons. |
 | F02 `fix: isolate Browse test runs` | Align bench, Store, split-view harness and cleanup paths. Adapt #497 only with complete world ownership/cleanup; #475's display name alone is insufficient. | Two test worlds coexist without changing Browse or Search production files, settings, cookies, credentials or clipboard. |
 | F03 `ci: check builds and tests` | PR build/tests/package workflow; adapt #579 download fixtures and repair the inherited file-access fixture without weakening denial assertions. | Green Swift suite, history and extension-file checks, unsigned bundle assembly; distinguish OS-specific tests. |
 | F04 `fix: use HTTPS for public hosts` | Focused #592, not duplicate #603 work. | Real private IPv4, public numeric-prefix names, ports, IPv6 and existing explicit schemes. |

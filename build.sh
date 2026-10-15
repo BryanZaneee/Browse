@@ -93,17 +93,9 @@ rm -rf "$ICONSET" "$ICONDOC"
 swift Icon/icon.swift "$ICONSET" "$ICONDOC" > /dev/null
 iconutil -c icns "$ICONSET" -o "$APP/Contents/Resources/AppIcon.icns"
 rm -rf "$ICONSET"
-# macOS 26's Dark, Clear and Tinted Dock styles read the icon from an asset
-# catalog compiled from the Icon Composer document; without one the Dock
-# darkens the flat image and the mark goes black on black (#337). actool
-# comes with Xcode 26 — with anything older, or only the command-line tools,
-# the app keeps the .icns alone, as before. Only Assets.car is kept, not
-# actool's own .icns: the one above goes on being the disk image's icon and
-# the fallback. (macOS 14 and 15 show the flat pictures actool puts in
-# Assets.car, drawn from the same document: the same mark, to within a
-# pixel, on a plate with Apple's own corners.) --optimization space keeps
-# those pictures zipped rather than lzfse'd: 666 KB of catalog instead of
-# 800, every style still in it.
+# Icon Composer supplies macOS 26's Dark, Clear and Tinted Dock styles.
+# Older tools keep the .icns fallback. Keep our .icns rather than actool's
+# generated copy; Assets.car carries the Browse mark on a separate plate.
 ICONNAME=""
 ICONCAR="build/AppIcon.car"
 rm -rf "$ICONCAR"

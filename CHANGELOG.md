@@ -11,6 +11,8 @@ in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased
 
+- Restore executable and app-bundle builds, including the Browse window icon in the Icon Composer asset.
+
 ### Added
 
 - Native macOS Picture in Picture keeps the video in the system player while its page stays in the tab. Returning to the tab no longer hides or restructures the page.
