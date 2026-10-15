@@ -1,0 +1,60 @@
+# Browse agent instructions
+
+## Product and authority
+
+- Work in `BryanZaneee/Browse`; the default branch is `main`. Search is upstream reference, not a publishing destination.
+- Read the assigned issue, linked dependencies, relevant source and tests, [implementation plan](docs/plans/BROWSE-IMPLEMENTATION-PLAN.md), and [CONTRIBUTING.md](CONTRIBUTING.md) before editing.
+- Keep Browse native, responsive and inexpensive when idle. Prefer existing SwiftUI/AppKit/WebKit code over dependencies or frameworks.
+- AI remains deferred. User-approved changes include removing site-search/address commands and enabling high refresh by default for unset preferences, while preserving explicit choices. Do not generalize “optional features off” into reversing those decisions.
+- Issue scope and acceptance criteria define the job. Report stale assumptions and propose a smaller complete fix; do not silently expand scope or weaken safeguards.
+
+## Claim, isolate and coordinate
+
+- Consult [the issue index](docs/plans/ISSUE-INDEX.md). Only implement work whose dependencies are merged and acceptance is satisfied; a closed issue alone is not proof.
+- Re-read the issue, assignee, state labels and open linked PRs before claiming it. One implementation owner per issue. Record your agent/session identifier, branch/worktree and scope in a short claim comment, then re-read for competing claims. An assignee account alone cannot distinguish agents sharing credentials.
+- Use a separate git worktree and branch per implementation agent: `fix/<issue>-short-name`, `feat/<issue>-short-name`, or `chore/<issue>-short-name`. Never have agents edit the same checkout concurrently. Do not reset, clean, stash or overwrite another agent's work.
+- Use only owned disposable test worlds. Until the isolation issue is fixed, do not drive `bench` against real Browse/Search profiles. Profile isolation does not isolate the system clipboard or keychain; use fixtures and existing test seams.
+- Parallelize only issues without unresolved dependencies or overlapping ownership of shared files. Browser.swift, TabBar.swift, Prefs.swift, Store.swift and extension globals often conflict. A coordinator schedules those changes serially or explicitly assigns distinct scopes.
+- Do not automatically launch a swarm. A user/coordinator assigns work; agents may request independent review. Avoid recursive delegation and duplicate PRs.
+- `state:blocked` means prerequisites or an external gate remain; `state:ready` means startable, not assigned; `state:in-progress` means claimed; `state:review` means an implementation PR awaits review; `state:deferred` means not approved for implementation yet. Maintain one state label. GitHub state and native dependencies are authoritative; the index is a map.
+
+## Implement the smallest complete change
+
+- Trace callers, persistence, menus, preferences, imports/exports, extensions and tests before changing shared behavior.
+- Keep one user-visible outcome per PR. Preserve error handling, accessibility, private-mode boundaries, draft protection and attribution when adapting upstream code.
+- Re-read the current upstream PR and SHA before reusing it. Check whether main already contains an adapted version. Record the source URL/SHA and retain author credit; old audit findings may be stale.
+- Never persist secrets or private page content in logs, fixtures, screenshots or commits. Do not initialize inactive profiles, hidden web views, models or timers merely to display a feature menu.
+- Persistence changes need backward-compatible decoding, failure handling and recoverable migration. Saved groups/read-later entries must not retain live web views.
+- Add a focused regression for nontrivial behavior. Do not add tests that merely restate implementation or weaken failing security assertions to make CI green.
+
+## Validation and evidence
+
+- Baseline commands: `swift build`, `swift test`, `./build.sh debug`, `Tests/HistoryRegression/run.sh`, `Tests/run-extension-files-tests.sh`. Run the relevant checks and any required CI gate; use targeted native harness tests for affected behavior after isolation is repaired.
+- Known starting defects: Store.folder missing return, icon generator references removed variables, bench profile-name mismatch, and a host-dependent ExtensionFileAccessTests fixture failure. Reconfirm against your base. Report baseline failures separately; do not call the suite green when they remain.
+- No app tests are required for documentation-only changes. Check links/templates/diffs instead. Never claim an unrun check passed.
+- UI changes need reproducible native fixture screenshots in `docs/screenshots/`, light/dark coverage where applicable, keyboard/accessibility checks and real animation evidence when motion is changed. See repo-conventions for format; preserve existing screenshots until replacements exist.
+- Performance claims need the same workload/Mac/OS/configuration, repeated measurements and separate host/WebKit memory. Disk size is not RAM, and idle CPU is not battery life. State untested devices/OS versions.
+- Update CHANGELOG Unreleased and relevant documentation for user-visible work; update plan/issue status without deleting historical provenance.
+
+## Commits
+
+- Use short imperative subjects, generally under 60 characters: `fix: preserve moved pins`, `feat: save closed tab groups`, `perf: reduce sidebar layout work`, `ci: check app bundles`, `docs: document agent workflow`.
+- Use a small number of coherent commits. Stage explicit paths, inspect the staged diff and run the available secret guard. Never include another agent's files, local profiles, credentials, raw diagnostic dumps or generated builds.
+- Keep upstream authorship/co-author credit and license notices. Source PR and reviewed SHA belong in the commit body or PR, not a long subject.
+
+## Pull requests and handoff
+
+- Open PRs against Browse `main` using [.github/pull_request_template.md](.github/pull_request_template.md). Use `Closes #N` only when all of that issue's acceptance criteria are delivered; use `Refs #N` for partial work.
+- Required sections: **Issue or feature**, **Code changes**, **Validation**, **Remaining limitations**. Explain final behavior and relevant code, not conversation history. List exact commands/results and source attribution. Provide before/after UI evidence or resource measurements when applicable.
+- Draft PRs may be used for substantive work in progress; do not create empty placeholder PRs for every issue. Link dependencies and stack bases explicitly. PR creation does not authorize merge or release.
+- Register every PR created or worked on using the thread's `link_pull_request` tool when available; verify with `list_thread_pull_requests` before finishing.
+- Hand off with issue/PR URLs, head SHA, changed areas, completed criteria, actual checks, unresolved risks and the next action. Keep the issue in review until merged and validated; do not close it merely because code was pushed.
+
+## Independent review and merge
+
+- A review agent reads the issue, full diff and connected code at an exact head SHA. Review correctness, data loss, privacy/security, lifecycle/resource use, compatibility, accessibility and test strength.
+- Review without editing the author's branch. Report actionable findings with severity, path/line, trigger and consequence; distinguish reproduced bugs from hypotheses. If none, state no findings plus checks and limitations, not “safe” without evidence.
+- Implementer fixes findings; reviewer rechecks the new SHA. Avoid cosmetic review churn. High-risk profile/persistence/permissions work needs explicit focused validation.
+- Agents sharing one GitHub identity cannot supply a genuinely separate GitHub account approval. A separate review session can provide evidence but must not impersonate a reviewer or claim it satisfies hosted approval rules.
+- Human/coordinator approval is the default merge gate unless the user explicitly delegates merging. No auto-merge, signing-secret changes, tags or releases without that authorization.
+- After merge, reconcile dependencies: inspect newly unblocked issues, label ready only when their prerequisites hold, and clean up only owned branches/worktrees. Do not mark later phases ready just because one gate merged.

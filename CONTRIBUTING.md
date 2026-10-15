@@ -19,8 +19,9 @@ Fixes and things every browser is expected to do (Tab moving between a form's fi
 
 ## Where things are tracked
 
-- [ROADMAP.md](ROADMAP.md): the working list for this fork. Upstream issue and pull request links remain attribution to the original project.
-- [CHANGELOG.md](CHANGELOG.md): what has changed since the last version. A pull request that fixes or adds something also adds its line under **Unreleased** (and takes its item off the roadmap), so the next update's notes write themselves.
+- [Implementation plan](docs/plans/BROWSE-IMPLEMENTATION-PLAN.md) and [issue index](docs/plans/ISSUE-INDEX.md): current Browse work, dependencies and acceptance criteria.
+- [ROADMAP.md](ROADMAP.md): inherited upstream history; upstream links preserve attribution.
+- [CHANGELOG.md](CHANGELOG.md): what has changed since the last version. A pull request that fixes or adds something also adds its line under **Unreleased** (and updates its roadmap status while preserving provenance), so the next update's notes write themselves.
 
 ## What tends to get merged
 
@@ -39,3 +40,19 @@ Fixes and things every browser is expected to do (Tab moving between a form's fi
 ## Reporting a bug
 
 Open an issue in this repository with: what you did, what you expected, what happened instead, and your macOS version. A crash log, if there is one, lives at `~/Library/Application Support/Browse/crash.log` — it only ever stays on your Mac unless you attach it yourself.
+
+## Branches, commits and review
+
+Follow [AGENTS.md](AGENTS.md) for agent ownership, isolated worktrees and review handoffs.
+Use short-lived branches into `main`, one outcome per PR, and short imperative commits
+such as `fix: preserve moved pins` or `feat: save closed tab groups`. Preserve upstream
+authorship and link the source revision when adapting a patch.
+
+Use the PR template: issue or feature, code changes, actual validation, and remaining
+limitations. Include reproducible screenshots for UI and comparable measurements for
+performance claims. Build/test/package checks must pass where applicable; baseline
+failures must be named, not hidden. A different agent reviews the exact PR head before
+the human/coordinator merge decision. Creating a PR does not authorize a release.
+
+High refresh defaults on for unset preferences under the approved Browse plan; preserve
+explicit user settings. AI remains deferred until foundation acceptance.
