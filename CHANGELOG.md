@@ -11,6 +11,8 @@ in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased
 
+- Release retired windows and their keyboard/traffic-light callbacks while preserving last-window restoration. Adapted from [Search #549](https://github.com/driceroland/Search/pull/549), thanks to @Aaditya2605.
+
 - Isolate development test worlds, including preferences, website storage, synthetic credentials and clipboard access; refuse cleanup of live or unowned worlds.
 
 - Restore executable and app-bundle builds, including the Browse window icon in the Icon Composer asset.
