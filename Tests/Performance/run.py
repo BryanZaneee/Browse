@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Repeated, owned-world baseline. Build the desired app configuration first."""
+"""Repeated, owned-world baseline; builds from a clean committed checkout."""
 import argparse
 import hashlib
 import http.server
@@ -127,8 +127,8 @@ def main():
                 world = World(f"performance-{count}-{repeat}")
                 world.wipe(); world.prepare()
                 try:
-                    # about:blank is deterministic and offline; restoration tests lazy tab cost, not web page load.
-                    (world.data / "session.json").write_text(json.dumps({"tabs": [{"url": "about:blank", "title": f"Fixture {n}"} for n in range(count)], "active": 0, "splits": []}))
+                    # Distinct loopback URLs survive session deduplication; restored inactive tabs stay lazy.
+                    (world.data / "session.json").write_text(json.dumps({"tabs": [{"url": base_url + f"/blank.html?tab={n}", "title": f"Fixture {n}"} for n in range(count)], "active": 0, "splits": []}))
                     subprocess.run(["defaults", "write", world.bundle, "bench", "-bool", "true"], check=True)
                     started = time.monotonic(); world.launch(measuring=True)
                     launch_ms = (time.monotonic() - started) * 1000

@@ -8,7 +8,7 @@ python3 Tests/Performance/run.py --configuration release --output /tmp/browse-ba
 python3 -m unittest discover -s Tests/Performance -p 'test_*.py'
 ```
 
-The runner uses only owned disposable bundles and synthetic `about:blank` sessions. It refuses fewer than three repetitions. Each restored 1/20/100-tab workload starts a fresh app, waits 60 seconds, then samples a five-second idle interval. Bundle copying and signing happen before launch timing. Later workloads settle for ten seconds before each five-second sample; this is distinct from the 60-second fresh-launch idle wait. The command takes at least fifteen minutes. It leaves a world intact if its app cannot quit; it never kills unrelated processes or cleans production storage.
+The runner uses only owned disposable bundles and synthetic loopback-page sessions. It refuses fewer than three repetitions. Each restored 1/20/100-tab workload starts a fresh app, waits 60 seconds, then samples a five-second idle interval. Bundle copying and signing happen before launch timing. Later workloads settle for ten seconds before each five-second sample; this is distinct from the 60-second fresh-launch idle wait. The command takes at least fifteen minutes. It leaves a world intact if its app cannot quit; it never kills unrelated processes or cleans production storage.
 
 The JSON records the source revision, executable hash, declared build configuration, Mac model, RAM, CPU count, architecture and OS. The runner builds the requested configuration from the recorded clean revision before timing, hashes the executable, and checks that the source remains unchanged. Build and signing time are excluded. App bytes are logical disk size, not RAM. Compare the same workload, configuration, Mac, OS, power setting and background activity; repeat after changes and compare medians and min/max spread. Three observations provide only a coarse spread, not confidence intervals.
 
@@ -20,7 +20,7 @@ Launch time ends at the test socket, not the first displayed frame; filesystem c
 
 | Workload | Status |
 | --- | --- |
-| Launch, settled idle, 1/20/100 restored tabs | Implemented; synthetic blank pages measure lazy restoration |
+| Launch, settled idle, 1/20/100 restored tabs | Implemented; minimal loopback pages measure lazy restoration |
 | Native typing and 20 window cycles | Implemented; callback/command timings only |
 | Heavy page | 5,000-card local fixture, hidden; no visible rendering claim |
 | Video/PiP, high-refresh comparison | Not measured by hidden runner; requires visible fixture and recorded display capability |
