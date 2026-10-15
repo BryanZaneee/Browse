@@ -972,6 +972,9 @@ struct ContentView: View {
     }
 
     private func dress(_ window: NSWindow) {
+        if Store.testing, !Browsers.all.contains(where: { $0 === browser }) {
+            print("Lifecycle late dress: browser=\(ObjectIdentifier(browser)) window=\(ObjectIdentifier(window))")
+        }
         browser.window = window
         window.tabbingMode = .disallowed
         // Light or dark is the app's to say (Settings › Appearance); the

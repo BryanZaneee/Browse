@@ -28,6 +28,7 @@ final class ClosedWindowTests: XCTestCase {
                 releasedBrowser = browser
                 retired.append { [weak browser] in browser }
                 identity = ObjectIdentifier(browser)
+                print("Lifecycle cycle \(cycle) browser=\(ObjectIdentifier(browser))")
                 Browsers.open(browser, frame: NSRect(x: -10000, y: -10000, width: 800, height: 600))
                 releasedWindow = browser.window
                 browser.window?.orderOut(nil)
