@@ -86,12 +86,12 @@ def main():
                    env=os.environ | {"BROWSE_ARCH": platform.machine()}, check=True)
     if revision() != source: raise RuntimeError("source changed while building")
     report = {"schema": 1, "smoke_only": args.smoke, "revision": source,
-              "platform": platform.platform(), "architecture": platform.machine(),
+              "platform": platform.platform(), "macos": platform.mac_ver()[0], "architecture": platform.machine(),
               "configuration": args.configuration,
               "mode": "hidden; SEARCH_MEASURE=1; default preferences",
               "settle_seconds": .5 if args.smoke else 60, "sample_seconds": .1 if args.smoke else 5, "runs": [],
               "limitations": ["Socket readiness is not rendered first-frame latency or cold-disk launch.",
-                 "Content accounting includes only tab-reported PIDs; GPU/network processes remain unattributed.",
+                 "Content accounting includes only tab-reported PIDs; GPU/network and extension-only processes remain unattributed.",
                  "Footprints summed across processes can include shared mappings; not a total system memory cost.",
                  "Hidden pages cannot establish visible heavy-page, video/PiP, high-refresh or frame timing performance.",
                  "Saved group reopen, profile switching and translation are not yet baseline workloads.",
@@ -213,6 +213,15 @@ def main():
                     values = [r[kind][metric] for r in rows if metric in r[kind]]
                     totals[kind + "_" + metric] = summary(values) if len(values) == args.repetitions else {"unavailable": "incomplete repetitions"}
             report["summary"][str(count)] = totals
+        report["workload_summary"] = {}
+        workload_rows = [r["workloads"] for r in report["runs"] if "workloads" in r]
+        for name in workload_rows[0]:
+            combined = {}
+            for kind in ("host", "content"):
+                for metric in ("physical_footprint_bytes", "cpu_percent_one_core"):
+                    values = [r[name][kind][metric] for r in workload_rows if metric in r[name].get(kind, {})]
+                    combined[kind + "_" + metric] = summary(values) if len(values) == args.repetitions else {"unavailable": "incomplete repetitions"}
+            report["workload_summary"][name] = combined
     server.shutdown(); server.server_close()
     if revision() != source: raise RuntimeError("source changed during measurement")
     args.output.write_text(json.dumps(report, indent=2) + "\n")

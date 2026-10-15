@@ -11,6 +11,8 @@ in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased
 
+- Add a reproducible, isolated performance workload runner with separate host and tab-process accounting.
+
 - Release retired windows and their keyboard/traffic-light callbacks while preserving last-window restoration. Adapted from [Search #549](https://github.com/driceroland/Search/pull/549), thanks to @Aaditya2605.
 - Native messaging keeps final replies when a host exits, hears fast replies, and stops hosts that send oversized frames. Adapted from [Search #483](https://github.com/driceroland/Search/pull/483) by [@AllDaGearNoIdea](https://github.com/AllDaGearNoIdea).
 - Check pull requests with isolated Swift tests, history and extension rules, and development bundle assembly on Apple Silicon and Intel.
