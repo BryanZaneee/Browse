@@ -394,4 +394,22 @@ final class HostPipeTests: XCTestCase {
         } catch { XCTAssertEqual(error.localizedDescription, "Test hosts must be fixtures inside this world.") }
     }
 
+    func testStopReleasesMessageCallbackOwner() {
+        final class Owner {
+            var pipe: HostPipe?
+            var messages = 0
+        }
+        let pipe = pipe(folder.appendingPathComponent("unused-host"), exits: Counter())
+        weak var released: Owner?
+        do {
+            let owner = Owner()
+            owner.pipe = pipe
+            released = owner
+            pipe.onMessage = { [owner] _ in owner.messages += 1 }
+        }
+        XCTAssertNotNil(released)
+        pipe.stop()
+        XCTAssertNil(released, "Stopping must break the callback-owner/pipe cycle")
+    }
+
 }

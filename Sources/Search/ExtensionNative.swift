@@ -307,9 +307,10 @@ final class HostPipe: @unchecked Sendable {
             handed.append((waiters.removeFirst().continuation, message))
         }
         let rest = messages.dropFirst(handed.count)
+        let deliver = onMessage
         lock.unlock()
         handed.forEach { $0.0.resume(returning: $0.1) }
-        rest.forEach { onMessage?($0) }
+        rest.forEach { deliver?($0) }
         // As in Chrome, a host claiming a message past the cap is done with;
         // what it sent before that in the same read is still heard.
         if overlong { finish(); end() }
@@ -350,6 +351,7 @@ final class HostPipe: @unchecked Sendable {
         waiters = []
         let exit = onExit
         onExit = nil
+        onMessage = nil
         lock.unlock()
         output.fileHandleForReading.readabilityHandler = nil
         pending.forEach { $0.continuation.resume(throwing: Self.exited) }

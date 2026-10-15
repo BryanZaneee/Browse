@@ -18,9 +18,9 @@ Fake Python hosts live in the owned XCTest directory, use synthetic JSON and hav
 and never sends signals based on stale PID files. The inherited-output child
 exits on its own after four seconds.
 
-The 16 cases cover large/final replies, busy readers, fast requests, persistent
+The 17 cases cover large/final replies, busy readers, fast requests, persistent
 ports, repeated stop, silent exit, inherited stdout, ignored termination, oversized
-and exactly-at-limit frames, post-exit calls, failed launch/request cleanup, allowed
+and exactly-at-limit frames, post-exit calls, failed launch/request cleanup, callback-owner release, allowed
 origins and denial of executables outside the fixture world.
 
 ## Deferred real integration
