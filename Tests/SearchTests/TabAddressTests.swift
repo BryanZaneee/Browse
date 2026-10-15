@@ -45,6 +45,43 @@ final class TabAddressTests: XCTestCase {
         RunLoop.main.run(until: Date(timeIntervalSinceNow: 0.08))
     }
 
+    func testNewTabUsesTheNativeTabFieldAndCancelsWithSuggestions() throws {
+        try withField { browser, field, editor in
+            let original = try XCTUnwrap(browser.active)
+            let address = original.address
+            browser.newTab()
+            spin()
+            XCTAssertNotEqual(browser.editingTab, original.id)
+            XCTAssertEqual(browser.editingTab, browser.tabs.last?.id)
+            XCTAssertFalse(browser.fieldShowing)
+            XCTAssertEqual(field.accessibilityLabel(), "New tab address")
+            XCTAssertEqual(field.placeholderAttributedString?.string, "New tab address")
+            editor.insertText("yout", replacementRange: editor.selectedRange())
+            spin()
+            XCTAssertEqual(field.stringValue, "youtube.com")
+            XCTAssertTrue(SiteCardPanel.suggestionsShown)
+            try key(editor, 53, "\u{1b}")
+            XCTAssertNil(browser.editingTab)
+            XCTAssertFalse(browser.composingTab)
+            XCTAssertEqual(original.address, address)
+        }
+    }
+
+    func testNewTabReturnOpensDestinationFromTheNativeTabField() throws {
+        try withField { browser, field, editor in
+            let original = try XCTUnwrap(browser.active)
+            let address = original.address
+            browser.newTab()
+            spin()
+            editor.insertText("about:blank#new-tab", replacementRange: editor.selectedRange())
+            try key(editor, 36, "\r")
+            XCTAssertNotEqual(browser.activeID, original.id)
+            XCTAssertEqual(browser.active?.address?.absoluteString, "about:blank#new-tab")
+            XCTAssertEqual(original.address, address)
+            XCTAssertFalse(browser.composingTab)
+        }
+    }
+
     func testEscapeBeforeTheNativeEditorClaimsFocus() throws {
         let browser = Browser(record: WindowRecord())
         let tab = browser.open(URL(string: "about:blank")!, foreground: true)
