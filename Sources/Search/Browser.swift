@@ -295,6 +295,8 @@ final class Browser: NSObject, ObservableObject {
         // The field put away takes its chip with it.
         didSet { if !editing, siteChip != nil { siteChip = nil } }
     }
+    /// New Tab uses the tab address editor while the current page stays visible.
+    @Published private(set) var composingTab = false
     /// The site the list offers to search, for what has been typed so far
     /// (Settings › General › Search a site from the address field).
     @Published private(set) var siteOffer: SearchSite?
@@ -327,7 +329,7 @@ final class Browser: NSObject, ObservableObject {
     var cycling = false
 
     var active: Tab? { tabs.first { $0.id == activeID } }
-    var fieldShowing: Bool { editing || active?.isBlank ?? true }
+    var fieldShowing: Bool { !composingTab && (editing || active?.isBlank ?? true) }
 
     /// Typed plus whatever the field is quietly finishing for you.
     var completed: String {
@@ -1339,7 +1341,8 @@ final class Browser: NSObject, ObservableObject {
     }
 
     func escapeTabEdit() {
-        if !tabOffers.isEmpty || tabEnding != nil { dismissTabSuggestions() }
+        if composingTab { cancelTabEdit() }
+        else if !tabOffers.isEmpty || tabEnding != nil { dismissTabSuggestions() }
         else { cancelTabEdit() }
     }
 
@@ -1358,10 +1361,9 @@ final class Browser: NSObject, ObservableObject {
     }
 
     func takeTabSuggestion(_ offer: Suggestion, for id: Tab.ID) {
-        guard editingTab == id, !renamingTab, tabOffers.contains(offer),
-              let tab = tabs.first(where: { $0.id == id }) else { return }
-        cancelTabEdit()
-        tab.go(to: offer.url)
+        guard editingTab == id, !renamingTab, let index = tabOffers.firstIndex(of: offer) else { return }
+        tabPicked = index
+        commitTabEdit()
     }
     /// Set while that field is being used to name the tab rather than to go
     /// somewhere: the same field, the same keys, a different thing at the end.
@@ -1371,6 +1373,12 @@ final class Browser: NSObject, ObservableObject {
     var tabInformationWatch: AnyCancellable?
 
     func beginTabEdit(_ tab: Tab, siteInformation: Bool = false) {
+        if composingTab, editingTab == tab.id {
+            tabEditRevision += 1
+            tabEditParked = false
+            return
+        }
+        if composingTab { cancelTabEdit() }
         if editingTab == tab.id, !renamingTab, !siteInformation {
             tabDraft = tabCompleted
             showingTabInformation = false
@@ -1395,12 +1403,13 @@ final class Browser: NSObject, ObservableObject {
     /// replaces it; emptying the field gives the page its own title back.
     func beginTabRename(_ tab: Tab) {
         cancelTabEdit()
+        guard tabs.contains(where: { $0.id == tab.id }) else { return }
         renamingTab = true
         tabDraft = tab.label
         editingTab = tab.id
     }
 
-    func commitTabEdit() {
+    func commitTabEdit(aside: Bool = false, front: Bool = false) {
         guard let id = editingTab, let tab = tabs.first(where: { $0.id == id }) else { return }
         if renamingTab {
             let typed = tabDraft.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -1416,11 +1425,25 @@ final class Browser: NSObject, ObservableObject {
             refusals += 1
             return
         }
+        let creating = composingTab
+        // This draft becomes a real tab, so cancellation must not discard it.
+        composingTab = false
         cancelTabEdit()
-        tab.go(to: url)
+        if creating {
+            if !aside || front { select(tab) }
+            if aside, !front, prefs.lazyTabs { tab.restore(url: url, title: "") }
+            else { tab.go(to: url) }
+            editing = false
+            if !aside || front { typed = "" }
+            rememberSession()
+        } else {
+            tab.go(to: url)
+        }
     }
 
     func cancelTabEdit() {
+        let discarded = composingTab ? editingTab : nil
+        composingTab = false
         tabEditRevision += 1
         tabNavigation = nil
         dismissTabSuggestions()
@@ -1429,12 +1452,17 @@ final class Browser: NSObject, ObservableObject {
         showingTabInformation = false
         renamingTab = false
         tabDraft = ""
+        if let id = discarded, let index = tabs.firstIndex(where: { $0.id == id }) {
+            let draft = tabs.remove(at: index)
+            draft.close()
+        }
     }
 
     /// Leaving the field keeps its visible draft, but only an explicit submit
     /// or suggestion click may navigate. Renaming still commits on blur.
     func finishTabEdit() {
         guard editingTab != nil, !tabEditParked else { return }
+        if composingTab { cancelTabEdit(); return }
         if renamingTab {
             commitTabEdit()
             return
@@ -1995,7 +2023,7 @@ final class Browser: NSObject, ObservableObject {
             if row.map(\.id) != tabs.map(\.id) { tabs = row }
             if !tabs.contains(where: { $0.id == activeID }) {
                 activeID = tabs.first { $0.pin == nil }?.id ?? tabs.first?.id
-                if activeID == nil { newTab() }
+                if activeID == nil { newBlankTab() }
             }
             splits.removeAll { pair in
                 !pair.tabs.allSatisfy { id in tabs.contains { $0.id == id } }
@@ -2355,6 +2383,7 @@ final class Browser: NSObject, ObservableObject {
     /// own, and the pin stays where it is (see splittable).
     func canSplit(_ first: Tab, with second: Tab) -> Bool {
         prefs.splitView && first.id != second.id && !first.bench && !second.bench
+            && (!composingTab || (editingTab != first.id && editingTab != second.id))
             && first.shy == second.shy
             && tabs.contains(where: { $0.id == first.id })
             && tabs.contains(where: { $0.id == second.id })
@@ -2397,6 +2426,7 @@ final class Browser: NSObject, ObservableObject {
     }
 
     func startSplit() {
+        if composingTab { cancelTabEdit() }
         guard prefs.splitView, let shown = active, !shown.bench else { return }
         if let pair = activeSplit {
             if let right = tabs.first(where: { $0.id == pair.right }) { focusPane(right) }
@@ -2592,6 +2622,35 @@ final class Browser: NSObject, ObservableObject {
     }
 
     func newTab() {
+        // An approved extension keeps ownership of ordinary new tabs.
+        if #available(macOS 15.4, *), active?.shy != true, Extensions.shared.newTabPage != nil {
+            newBlankTab()
+            return
+        }
+        if composingTab {
+            tabDraft = ""
+            dismissTabSuggestions()
+            tabEditRevision += 1
+            tabEditParked = false
+            return
+        }
+        if active == nil { newBlankTab() }
+        guard let source = active else { return }
+        cancelTabEdit()
+        let switching = summoning
+        summoning = false
+        if !source.isBlank || switching { typed = "" }
+        editing = false
+        let draft = Tab(shy: source.shy, configuration: Web.configuration(shy: source.shy, space: spaceID))
+        adopt(draft)
+        composingTab = true
+        tabDraft = ""
+        editingTab = draft.id
+    }
+
+    /// Internal operations need an actual empty tab, rather than a composer.
+    func newBlankTab() {
+        if composingTab { cancelTabEdit() }
         // On a private tab, a new one is private too: ⌘T from a page that
         // keeps nothing and landing on one that keeps everything is how a
         // private search ends up in the history.
@@ -2652,6 +2711,13 @@ final class Browser: NSObject, ObservableObject {
     }
 
     func select(_ tab: Tab, floatPrevious: Bool = true) {
+        if composingTab, editingTab == tab.id {
+            tabEditRevision += 1
+            tabEditParked = false
+            return
+        }
+        if composingTab { cancelTabEdit() }
+        guard tabs.contains(where: { $0.id == tab.id }) else { return }
         if let pair = split(for: tab), activeSplit?.id == pair.id, activeID != tab.id {
             focusPane(tab)
             return
@@ -2702,6 +2768,7 @@ final class Browser: NSObject, ObservableObject {
     /// in the same order, so the two keys agree on what is in front.
     func closeFront() {
         if peekTab != nil { closePeek() }
+        else if composingTab { cancelTabEdit() }
         else if closePanel() { return }
         else if let tab = active { close(tab) }
     }
@@ -2724,6 +2791,11 @@ final class Browser: NSObject, ObservableObject {
     /// ⌘W, or the cross on the tab. Closing the last one leaves a blank tab
     /// behind; closing that blank tab closes the window.
     func close(_ tab: Tab) {
+        if composingTab {
+            let draft = editingTab == tab.id
+            cancelTabEdit()
+            if draft { return }
+        }
         guard let index = tabs.firstIndex(where: { $0.id == tab.id }) else { return }
         let pair = split(for: tab)
         let partner = pair.flatMap { pair in tabs.first { $0.id == pair.partner(of: tab.id) } }
@@ -2749,7 +2821,7 @@ final class Browser: NSObject, ObservableObject {
             if let back = (loose.isEmpty ? others : loose).max(by: { $0.touched < $1.touched }) {
                 select(back)
             } else {
-                newTab()
+                newBlankTab()
             }
             writeSession(now: true)
             return
@@ -2832,7 +2904,7 @@ final class Browser: NSObject, ObservableObject {
         // It may still reuse one of yours, in a group: that one is yours to
         // keep, and only a tab Clear made is taken away again by the undo.
         let had = Set(tabs.map(\.id))
-        newTab()
+        newBlankTab()
         lastClear = (batch, activeID.flatMap { had.contains($0) ? nil : $0 })
         for tab in onScreen where tab.id != activeID { close(tab) }
     }
@@ -2998,6 +3070,7 @@ final class Browser: NSObject, ObservableObject {
     /// Put a tab in another space. If its store changes, ask only when the
     /// page has unsaved form entries; the new view then opens in that space.
     func move(_ tab: Tab, toSpace id: UUID, then: (() -> Void)? = nil) {
+        guard !composingTab || editingTab != tab.id else { return }
         guard prefs.usesSpaces, id != spaceID,
               spaces.contains(where: { $0.id == id }),
               tabs.contains(where: { $0.id == tab.id }), !tab.bench,
@@ -3033,6 +3106,7 @@ final class Browser: NSObject, ObservableObject {
 
     @discardableResult
     private func finishMove(_ tab: Tab, toSpace id: UUID) -> Bool {
+        if composingTab { cancelTabEdit() }
         guard prefs.usesSpaces, id != spaceID,
               let destination = spaces.first(where: { $0.id == id }),
               let index = tabs.firstIndex(where: { $0.id == tab.id })
@@ -3078,6 +3152,10 @@ final class Browser: NSObject, ObservableObject {
     /// reopens with those, as Move to Space does. Not a pin: pins are
     /// already in every window.
     func moveToWindow(_ tab: Tab, _ target: Browser?, at point: NSPoint? = nil) {
+        if composingTab {
+            guard editingTab != tab.id else { return }
+            cancelTabEdit()
+        }
         guard tab.pin == nil, !tab.bench, target !== self, tabs.contains(where: { $0.id == tab.id }),
               target != nil || tabs.count > 1 || !tab.isBlank
         else { return }
@@ -3524,6 +3602,7 @@ final class Browser: NSObject, ObservableObject {
     /// ⌘⇧N. A tab that keeps nothing — its own cookies, its own sign-ins, no
     /// history, and no place in tomorrow's session.
     func newShyTab() {
+        if composingTab { cancelTabEdit() }
         // Never two empty private tabs, as ⌘T never makes two empty ones:
         // one already open comes to the end of the row and is the one opened.
         if let blank = tabs.last(where: { $0.isBlank && $0.shy && !$0.bench }) {
@@ -3988,6 +4067,7 @@ final class Browser: NSObject, ObservableObject {
         summoning = false
         if case .command(let command) = offer.kind {
             command.run(on: self)
+            if command == .newTab { return }
         } else if let id = offer.tab, let tab = tabs.first(where: { $0.id == id }) {
             select(tab)
         } else {
@@ -4036,6 +4116,7 @@ final class Browser: NSObject, ObservableObject {
     /// ⌘L. The current address comes up selected, so typing over it replaces it
     /// and Escape puts it back.
     func edit() {
+        cancelTabEdit()
         summoning = false
         // Never a name and password written into the address: they would be
         // on screen, and in whatever you copy from here.
@@ -4053,6 +4134,7 @@ final class Browser: NSObject, ObservableObject {
     func dismiss() {
         summoning = false
         cycling = false
+        if composingTab { cancelTabEdit(); return }
         // Esc with a site in the field: the site goes, the field stays.
         if siteChip != nil {
             siteChip = nil
@@ -4114,6 +4196,7 @@ final class Browser: NSObject, ObservableObject {
         let chosen = (picked.flatMap { offers.indices.contains($0) ? offers[$0] : nil }) ?? offers.first
         if case .command(let command) = chosen?.kind {
             command.run(on: self)
+            if command == .newTab { return }
             editing = false
             typed = ""
             picked = nil

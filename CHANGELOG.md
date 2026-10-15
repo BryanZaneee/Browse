@@ -17,6 +17,7 @@ in [ROADMAP.md](ROADMAP.md).
 
 ### Added
 
+- Home search suggestions expand inside the search field's card. New Tab opens its own draft tab with an address field and connected suggestions while keeping the current page visible; submitting loads that draft, and Escape or clicking away removes it.
 - Native macOS Picture in Picture keeps the video in the system player while its page stays in the tab. Returning to the tab no longer hides or restructures the page.
 - A tab's address field suggests local history and completes the address in place. Arrow keys choose a result, Tab accepts completion, and Return or a click opens it; it works in the top bar, sidebar and split views.
 - Browse has a separate app identity, profile, keychain labels, icon and signed update feed, so it can be installed alongside Search.

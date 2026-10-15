@@ -109,6 +109,7 @@ struct TabBar: View {
                                 .onAppear { reveal(reader, in: geo.size.width) }
                                 .onChange(of: overflowing(in: geo.size.width)) { _, _ in reveal(reader, in: geo.size.width) }
                                 .onChange(of: browser.activeID) { _, _ in reveal(reader, in: geo.size.width, gliding: true) }
+                                .onChange(of: browser.editingTab) { _, _ in reveal(reader, in: geo.size.width, gliding: true) }
                             }
                                 .offset(y: browser.spaceSwipe)
                         }
@@ -245,7 +246,7 @@ struct TabBar: View {
     /// when the window first shows it, on the strip's spring when you pick
     /// another. A turn of the run loop later, so the run has been laid out.
     private func reveal(_ reader: ScrollViewProxy, in strip: CGFloat, gliding: Bool = false) {
-        guard overflowing(in: strip), let activeID = browser.activeID else { return }
+        guard overflowing(in: strip), let activeID = browser.editingTab ?? browser.activeID else { return }
         let id: Tab.ID
         if browser.prefs.splitView, let active = browser.tabs.first(where: { $0.id == activeID }) {
             id = browser.split(for: active)?.left ?? activeID
@@ -955,7 +956,11 @@ struct TabAddressField: NSViewRepresentable {
     func updateNSView(_ field: NSTextField, context: Context) {
         let coordinator = context.coordinator
         coordinator.browser = browser
-        field.setAccessibilityLabel(browser.renamingTab ? "Tab name" : "Tab address")
+        field.setAccessibilityLabel(browser.renamingTab ? "Tab name" : (browser.composingTab ? "New tab address" : "Tab address"))
+        field.placeholderAttributedString = browser.composingTab ? NSAttributedString(
+            string: "New tab address",
+            attributes: [.font: NSFont.systemFont(ofSize: 12.5), .foregroundColor: Palette.NS.muted]
+        ) : nil
         field.setAccessibilityHelp(browser.renamingTab ? nil : "Use Up and Down to choose a suggestion, Tab to complete, or Return to open.")
         coordinator.sync(field)
         coordinator.claim(field)
