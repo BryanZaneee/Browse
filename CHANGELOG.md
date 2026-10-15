@@ -11,6 +11,8 @@ in [ROADMAP.md](ROADMAP.md).
 
 ## Unreleased
 
+- Restore executable and app-bundle builds, including the Browse window icon in the Icon Composer asset.
+
 ### Added
 
 - Home search suggestions expand inside the search field's card. New Tab opens its own draft tab with an address field and connected suggestions while keeping the current page visible; submitting loads that draft, and Escape or clicking away removes it.
