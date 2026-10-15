@@ -4022,7 +4022,8 @@ final class Browser: NSObject, ObservableObject {
         } else if let id = offer.tab, let tab = tabs.first(where: { $0.id == id }) {
             select(tab)
         } else if composingTab {
-            open(offer.url, foreground: true, from: active)
+            newBlankTab()
+            active?.go(to: offer.url)
         } else {
             (active ?? tabs.first)?.go(to: offer.url)
         }
@@ -4087,6 +4088,11 @@ final class Browser: NSObject, ObservableObject {
     func dismiss() {
         summoning = false
         cycling = false
+        if composingTab {
+            editing = false
+            typed = ""
+            return
+        }
         // Esc with a site in the field: the site goes, the field stays.
         if siteChip != nil {
             siteChip = nil
@@ -4168,10 +4174,13 @@ final class Browser: NSObject, ObservableObject {
             refusals += 1
             return
         }
-        if aside || composingTab {
+        if composingTab && !aside {
+            newBlankTab()
+            active?.go(to: url)
+        } else if aside {
             // Opened behind the page by hand, as a ⌘-clicked link is: it may
             // wait to load (Settings › Tabs › Load background tabs…).
-            open(url, foreground: (composingTab && !aside) || front, from: active, mayWait: true)
+            open(url, foreground: front, from: active, mayWait: true)
         } else {
             (active ?? tabs.first)?.go(to: url)
         }

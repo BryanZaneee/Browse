@@ -37,7 +37,7 @@ struct Fixture {
                         .padding(100)
                         .foregroundStyle(Palette.ink)
                     }
-                    Omnibox(browser: browser, over: over, fitted: true)
+                    Omnibox(browser: browser, over: over, fitted: over)
                 }.environment(\.colorScheme, dark ? .dark : .light))
                 let window = NSWindow(contentRect: NSRect(origin: NSPoint(x: -20000, y: -20000), size: size), styleMask: .borderless, backing: .buffered, defer: false)
                 window.appearance = appearance
@@ -89,10 +89,27 @@ struct Fixture {
                     precondition(browser.picked == 0)
                     precondition(coordinator.control(field, textView: editor, doCommandBy: #selector(NSResponder.insertNewline(_:))))
                     precondition(browser.opened == suggestions[0].url)
-                    host.setFrameSize(NSSize(width: 420, height: 720))
+                    browser.picked = nil
                     spin(0.2)
-                    let narrow = field.convert(field.bounds, to: host)
-                    precondition(narrow.minX >= 14 && narrow.maxX <= 406, "Field overflows a narrow pane")
+                    let rect = field.convert(field.bounds, to: host)
+                    // The second 34-point row is below field padding, divider and list inset.
+                    let distance: CGFloat = 14 + 1 + 6 + 34 + 17
+                    let point = NSPoint(x: rect.minX + 60, y: host.isFlipped ? rect.maxY + distance : rect.minY - distance)
+                    let location = host.convert(point, to: nil)
+                    for kind in [NSEvent.EventType.leftMouseDown, .leftMouseUp] {
+                        let event = NSEvent.mouseEvent(with: kind, location: location, modifierFlags: [],
+                            timestamp: ProcessInfo.processInfo.systemUptime, windowNumber: window.windowNumber,
+                            context: nil, eventNumber: 1, clickCount: 1, pressure: 1)!
+                        window.sendEvent(event)
+                        spin(0.05)
+                    }
+                    precondition(browser.opened == suggestions[1].url, "Expanded suggestion row did not receive a mouse click")
+                    if over {
+                        host.setFrameSize(NSSize(width: 420, height: 720))
+                        spin(0.2)
+                        let narrow = field.convert(field.bounds, to: host)
+                        precondition(narrow.minX >= 14 && narrow.maxX <= 406, "Field overflows a narrow pane")
+                    }
                 }
                 window.orderOut(nil)
                 window.contentView = nil
@@ -101,7 +118,7 @@ struct Fixture {
         if before {
             print("Native baseline fixture captured; field-anchor checks passed")
         } else {
-            print("Native omnibox fixture: field anchor, narrow layout, accessibility metadata and keyboard delegate checks passed; Reduce Motion = \(Motion.reduced)")
+            print("Native omnibox fixture: field anchor, narrow layout, accessibility metadata, keyboard delegate and suggestion click checks passed; Reduce Motion = \(Motion.reduced)")
         }
     }
 

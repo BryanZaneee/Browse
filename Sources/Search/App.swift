@@ -1214,6 +1214,10 @@ struct ContentView: View {
                 browser.closeFind()
                 return true
             }
+            if browser.composingTab {
+                browser.dismiss()
+                return true
+            }
             // One step at a time: the list first, then the field.
             if browser.picked != nil {
                 browser.picked = nil

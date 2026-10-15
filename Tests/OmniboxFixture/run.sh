@@ -6,7 +6,7 @@ trap 'rm -rf "$test_root"' EXIT HUP INT TERM
 output=${1:-"$repo_root/docs/screenshots"}
 source="$repo_root/Sources/Search/Omnibox.swift"
 if [ "${2:-}" = "--before" ]; then
-    git -C "$repo_root" show 3241006:Sources/Search/Omnibox.swift > "$test_root/Omnibox.swift"
+    git -C "$repo_root" show 3241006e72b8b4c4212095552eaed8f9d99f226a:Sources/Search/Omnibox.swift > "$test_root/Omnibox.swift"
     source="$test_root/Omnibox.swift"
 fi
 swiftc -parse-as-library -swift-version 5 \

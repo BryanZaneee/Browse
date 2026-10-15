@@ -2578,7 +2578,7 @@ final class Bench {
             reply()
 
         case "newTab":
-            browser.newTab()
+            browser.newBlankTab()
             reply()
 
         case "reopen":

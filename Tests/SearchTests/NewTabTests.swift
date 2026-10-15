@@ -80,17 +80,32 @@ final class NewTabTests: XCTestCase {
         XCTAssertEqual(browser.activeID, original.id)
     }
 
-    func testSubmitCreatesDestinationAndPreservesOriginal() {
+    func testCancelWithASiteChipStillDismissesTheComposer() throws {
+        let (browser, original) = page()
+        browser.newTab()
+        browser.siteChip = try XCTUnwrap(SiteSearch.match("red"))
+        browser.dismiss()
+        XCTAssertFalse(browser.composingTab)
+        XCTAssertFalse(browser.fieldShowing)
+        XCTAssertNil(browser.siteChip)
+        XCTAssertEqual(browser.activeID, original.id)
+    }
+
+    func testSubmitCreatesDestinationAndPreservesOriginal() throws {
         for privateMode in [false, true] {
             let (browser, original) = page(privateMode: privateMode)
             let count = browser.tabs.count
             browser.newTab()
             browser.typed = "about:blank#destination"
             browser.submit()
+            let destination = try XCTUnwrap(browser.active)
             XCTAssertEqual(browser.tabs.count, count + 1)
             XCTAssertNotEqual(browser.activeID, original.id)
             XCTAssertEqual(browser.active?.address?.fragment, "destination")
             XCTAssertEqual(browser.active?.shy, privateMode)
+            if privateMode {
+                XCTAssertFalse(destination.store === original.store, "New private tabs keep their own ephemeral store")
+            }
             XCTAssertEqual(original.address?.fragment, "original")
             XCTAssertFalse(browser.composingTab)
         }
@@ -104,6 +119,24 @@ final class NewTabTests: XCTestCase {
         XCTAssertNotEqual(browser.activeID, original.id)
         XCTAssertEqual(browser.active?.address, url)
         XCTAssertEqual(original.address?.fragment, "original")
+    }
+
+    func testSubmissionReusesAnExistingBlankWithoutTouchingItOnCancel() {
+        let (browser, original) = page()
+        browser.newBlankTab()
+        let blank = browser.active!
+        browser.select(original)
+        let count = browser.tabs.count
+        browser.newTab()
+        browser.dismiss()
+        XCTAssertTrue(blank.isBlank)
+        XCTAssertEqual(browser.activeID, original.id)
+        browser.newTab()
+        browser.typed = "about:blank#reused"
+        browser.submit()
+        XCTAssertEqual(browser.tabs.count, count)
+        XCTAssertEqual(browser.activeID, blank.id)
+        XCTAssertEqual(blank.address?.fragment, "reused")
     }
 
     func testSearchAndKeyboardSelectionUseANewTab() throws {
