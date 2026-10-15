@@ -33,8 +33,7 @@ try:
     time.sleep(.4)
     fields = [sv.cmd({"do": "probe", "window": n}).get("field") for n in (1, 2)]
     t.ok("background window keeps its own Command-L handler", fields == [False, True], fields)
-    opened = sv.cmd({"do": "open", "window": 2, "url": sv.BASE + "/reopen-fixture"})
-    sv.cmd({"do": "wait", "window": 2, "id": opened["id"]})
+    sv.cmd({"do": "field", "window": 2, "text": sv.BASE + "/reopen-fixture", "go": True})
     before = windows("state")[-1]["tabs"]
     windows("close", n=2)
     restored = windows("reopen")
