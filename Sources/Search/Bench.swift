@@ -630,6 +630,7 @@ final class Bench {
             // page: which panels are up, whether something modal has the
             // app, and every window the app owns.
             var out: [String: Any] = [
+                "measuring": Store.measuring,
                 "settings": browser.tuning,
                 "welcome": browser.welcoming,
                 "passwords": browser.managing,

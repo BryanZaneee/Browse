@@ -10,6 +10,14 @@ Test credentials and bench consent live only in memory; recreate synthetic crede
 
 XCTest uses a process-unique temporary directory/defaults suite and a randomly identified persistent WebKit store (resume-data tests require persistence). `python3 Tests/run-unit-tests.py` runs serial `swift test` (parallel workers are rejected) and removes only its recorded UUID store after the test process exits. Raw `swift test` remains isolated but leaves its WebKit ownership marker/store for explicit cleanup; prefer the runner. It never uses production app defaults, credentials or WebKit stores. Real password-manager/keychain integration requires a separate controlled acceptance test; these seams do not prove it.
 
+## CI gate
+
+`python3 Tests/run-ci-tests.py` runs the suite and each of the seven download journeys in a fresh process, through the owned-store cleanup runner. No download retries or skips are used. The callback/delegate timing and held cancellation response adapt [Search #579](https://github.com/driceroland/Search/pull/579), by quanru (Leyang), at `f831297ee22a1585100c4583e6dd13e0918bbf4d`.
+
+The PR workflow runs build, Swift tests, history regression, extension-file rules and development bundle assembly on `macos-15-intel` and `macos-26` (Apple Silicon). It has read-only repository permissions and receives no release credentials. Bundle assembly uses ad-hoc signing; it does not notarize or publish. Native screenshot capture remains opt-in.
+
+Web-extension tests require macOS 15.4+; the standalone extension-file rules also cover code without that API. macOS 14 runtime compatibility remains a separate manual gate: its hosted image is [being retired](https://github.com/actions/runner-images/issues/13518), and building with a 14.0 deployment target is not runtime validation. The file-access test keeps its positive grant control on newer WebKit by enabling its private file gate only on an unloaded synthetic context; the original app-like denial checks remain unchanged. See [WebKit’s gate change](https://github.com/WebKit/WebKit/commit/51ea20f9818ed956dee01fc46a8b36dfcb94797c).
+
 ## Checks
 
 - `python3 Tests/test_world.py`: identities, competing owners, live-process refusal, symlinks and foreign Space IDs.

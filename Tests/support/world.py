@@ -85,12 +85,12 @@ class World:
         plist.write_bytes(plistlib.dumps(info))
         subprocess.run(["codesign", "--force", "--deep", "--sign", "-", str(self.app)], check=True, capture_output=True)
 
-    def launch(self, hidden=True):
+    def launch(self, hidden=True, measuring=False):
         self.lock()
         self.verify()
         if self.pids(): raise RuntimeError("world is already running")
         self.socket.unlink(missing_ok=True)
-        subprocess.run(["open", "-n", *(["-g", "-j"] if hidden else []), str(self.app)], check=True)
+        subprocess.run(["open", "-n", *(["-g", "-j"] if hidden else []), *(["--env", "SEARCH_MEASURE=1"] if measuring else []), str(self.app)], check=True)
         for _ in range(150):
             if (hidden and self.socket.exists()) or (not hidden and self.pids()): return
             time.sleep(.1)
