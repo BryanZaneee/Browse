@@ -11,6 +11,38 @@ final class ExtensionUpdateTests: XCTestCase {
         super.setUp()
     }
 
+    func testUpdatePermissionDefersWithoutWindowAndReturnCancelsRetry() async throws {
+        _ = NSApplication.shared
+        let extensions = Extensions.shared
+        XCTAssertNil(extensions.answerForTests)
+        XCTAssertFalse(NSApp.windows.contains { $0.isVisible && $0.canBecomeMain })
+        let deferred = await extensions.ask(install: "Synthetic update", wants: ["Read history"], icon: nil, updating: true)
+        XCTAssertFalse(deferred)
+
+        let window = NSWindow(contentRect: NSRect(x: -20000, y: -20000, width: 600, height: 400),
+                              styleMask: [.titled], backing: .buffered, defer: false)
+        window.isReleasedWhenClosed = false
+        window.orderBack(nil)
+        defer { window.close() }
+        let retry = Task { await extensions.ask(install: "Synthetic update", wants: ["Read history"], icon: nil, updating: true) }
+        for _ in 0..<100 {
+            if window.attachedSheet != nil { break }
+            try await Task.sleep(for: .milliseconds(20))
+        }
+        let sheet = try XCTUnwrap(window.attachedSheet)
+        func buttons(in view: NSView) -> [NSButton] {
+            (view as? NSButton).map { [$0] } ?? view.subviews.flatMap { buttons(in: $0) }
+        }
+        let controls = buttons(in: try XCTUnwrap(sheet.contentView))
+        let cancel = try XCTUnwrap(controls.first { $0.title == "Cancel" })
+        let confirm = try XCTUnwrap(controls.first { $0.title == "Add Extension" })
+        XCTAssertTrue(sheet.defaultButtonCell === cancel.cell, "Return must cancel the update")
+        XCTAssertEqual(confirm.keyEquivalent, "")
+        cancel.performClick(nil)
+        let accepted = await retry.value
+        XCTAssertFalse(accepted)
+    }
+
     func testRecentStartupStillSchedulesLaterChecks() throws {
         _ = NSApplication.shared
         let extensions = Extensions.shared
