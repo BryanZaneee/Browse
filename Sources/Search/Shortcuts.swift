@@ -238,7 +238,6 @@ struct Command: Identifiable {
     ] + (1...9).map { number in
         Command("spaces.\(number)", "Space \(number)", .spaces,
                 KeyCombo(String(number), command: false, control: true)) { browser in
-            guard browser.prefs.usesSpaces else { return }
             browser.switchSpace(index: number - 1)
         }
     }
