@@ -5082,12 +5082,11 @@ extension Browser: WKNavigationDelegate, WKUIDelegate {
         tab.opener = from
         // The link menu's Open Link in New Tab: behind this tab, where a
         // ⌘-click's goes (see open(_:foreground:)).
+        prepare(tab)
         if (webView as? PageView)?.takeBehind() == true, let source = self.tab(for: webView) {
-            prepare(tab)
             if prefs.usesTabGroups, !tab.shy, !tab.bench { tab.groupID = source.groupID }
             tabs.insert(tab, at: placeForNew())
         } else {
-            prepare(tab)
             tabs.insert(tab, at: placeForNew())
             activeID = tab.id
             editing = false
