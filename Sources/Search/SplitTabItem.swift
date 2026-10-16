@@ -120,7 +120,7 @@ private struct SplitTabHalf: View {
 
     private var laidOut: some View {
         row
-            .padding(.leading, stacked ? 10 : 9)
+            .padding(.leading, stacked ? 0 : 9)
             .padding(.trailing, stacked ? 7 : 4)
             .frame(height: stacked ? height : 28)
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -198,6 +198,7 @@ private struct SplitTabHalf: View {
     private var row: some View {
         HStack(spacing: stacked ? 8 : 5) {
             titleContent
+                .padding(.leading, stacked ? 10 : 0)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .frame(height: stacked ? height : 16)
                 .contentShape(Rectangle())

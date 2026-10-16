@@ -127,6 +127,7 @@ final class SidebarPressTests: XCTestCase {
         try await settle()
         let padding = NSPoint(x: 14, y: title.y)
         try await send(.leftMouseDown, at: padding, in: window)
+        XCTAssertEqual(browser.activeID, tabs[0].id, "The leading padding must also select on press")
         try await send(.leftMouseUp, at: padding, in: window)
         XCTAssertEqual(browser.activeID, tabs[0].id)
     }
