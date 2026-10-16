@@ -268,7 +268,7 @@ struct SideBar: View {
                     PinGrid(cells: cells) {
                         ForEach(Array(pins.enumerated()), id: \.element.id) { index, tab in
                             PinSquare(browser: browser, prefs: prefs, tab: tab, live: tab.id == row.active,
-                                      pill: pill, width: cells[index].width, height: cells[index].height, interactive: false)
+                                      pill: pill, width: cells[index].width, height: cells[index].height)
                         }
                     }
                 }
@@ -608,7 +608,6 @@ private struct PinSquare: View {
     let pill: Namespace.ID
     var width: CGFloat = 34
     var height: CGFloat = 34
-    var interactive = true
 
     @State private var hovering = false
     @State private var selectedOnPress = false
@@ -657,7 +656,7 @@ private struct PinSquare: View {
             }
         }
         .contentShape(RoundedRectangle(cornerRadius: scale * 9 / 34, style: .continuous))
-        .modifier(TabPress(enabled: interactive && browser.editingPin != tab.id, active: live, selected: $selectedOnPress) {
+        .modifier(TabPress(enabled: browser.editingPin != tab.id, active: live, selected: $selectedOnPress) {
             browser.clearTabSelection()
             browser.select(tab)
         })
