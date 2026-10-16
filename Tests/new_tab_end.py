@@ -40,16 +40,51 @@ def run(t, place, sidebar=True):
         # The initial blank is reused, then navigated so the next one is fresh.
         blank = sv.sp("newTab")["activeID"]
         now = order()
-        target = 0 if place == "top" else len(now) - 1
+        target = {"next": now.index(d) + 1, "top": 0, "end": len(now) - 1}[place]
         t.ok(f"{place}: reused blank has the chosen position", now[target] == blank, now)
         t.ok(f"{place}: repeated new tab reuses the same blank", sv.sp("newTab")["activeID"] == blank)
         sv.cmd({"do": "go", "id": blank, "url": f"{sv.BASE}/filled"})
         time.sleep(0.7)
         fresh = sv.sp("newTab")["activeID"]
         now = order()
-        t.ok(f"{place}: fresh blank has the chosen position", fresh != blank and now[0 if place == "top" else -1] == fresh, now)
+        target = {"next": now.index(blank) + 1, "top": 0, "end": len(now) - 1}[place]
+        t.ok(f"{place}: fresh blank has the chosen position", fresh != blank and now[target] == fresh, now)
 
         if place != "top":
+            # Reuse from either side of the current tab, not only the initial slot.
+            for anchor in [a, c]:
+                sv.sp("select", id=anchor)
+                reused = sv.sp("newTab")["activeID"]
+                now = order()
+                target = now.index(anchor) + 1 if place == "next" else len(now) - 1
+                t.ok(f"{place}: reused blank follows the current choice", reused == fresh and now[target] == fresh, now)
+            sv.sp("select", id=a)
+            private = sv.sp("private")["activeID"]
+            now = order()
+            target = now.index(a) + 1 if place == "next" else len(now) - 1
+            t.ok(f"{place}: fresh private tab follows the current choice", now[target] == private, now)
+            sv.sp("select", id=c)
+            reused = sv.sp("private")["activeID"]
+            now = order()
+            target = now.index(c) + 1 if place == "next" else len(now) - 1
+            t.ok(f"{place}: reused private tab follows the current choice", reused == private and now[target] == private, now)
+            if place == "next":
+                sv.sp("pair", id=b, **{"with": a, "side": "right"})
+                for slot in [0, len(order()) - 1]:
+                    sv.sp("move", id=fresh, to=slot)
+                    sv.sp("select", id=a)
+                    reused = sv.sp("newTab")["activeID"]
+                    now = order()
+                    t.ok("next: reused blank goes after the whole split", reused == fresh and now.index(fresh) == now.index(b) + 1, now)
+            sv.sp("select", id=d)
+            sv.ev(d, "document.body.innerHTML = `<button id='go' onclick=\"window.open('/popup')\">Open</button>`")
+            sv.cmd({"do": "tap", "id": d, "selector": "#go"})
+            time.sleep(1)
+            state = sv.sp("state")
+            popup = next(tab["id"] for tab in state["tabs"] if tab["url"] == f"{sv.BASE}/popup")
+            now = order(state)
+            target = now.index(d) + 1 if place == "next" else len(now) - 1
+            t.ok(f"{place}: foreground popup has the chosen position", now[target] == popup, now)
             return
 
         sv.cmd({"do": "pin", "id": a})
@@ -122,9 +157,9 @@ def run(t, place, sidebar=True):
 def main():
     t = sv.T()
     try:
-        for place in ("next", "end", "top"):
-            run(t, place)
-        run(t, "top", sidebar=False)
+        for sidebar in (True, False):
+            for place in ("next", "end", "top"):
+                run(t, place, sidebar=sidebar)
     finally:
         t.done()
     sys.exit(1 if t.failed else 0)

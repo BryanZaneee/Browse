@@ -483,8 +483,15 @@ struct SettingsPanel: View {
                 Switch(on: $prefs.newTabAfterLast)
             }
             Rule()
-            Line("New tab position", "Open tabs after the current tab, at the top or at the end. Pins stay first, and links from a group stay in that group.") {
-                Segmented(options: [(.next, "Next"), (.top, "Top"), (.end, "End")], selection: $prefs.newTabPlace)
+            Line("New tab position", "Pins stay first. Links from a group stay in that group.") {
+                Picker("New tab position", selection: $prefs.newTabPlace) {
+                    Text("After current").tag(NewTabPlace.next)
+                    Text(prefs.sidebar ? "Top" : "Leftmost").tag(NewTabPlace.top)
+                    Text(prefs.sidebar ? "Bottom" : "Rightmost").tag(NewTabPlace.end)
+                }
+                .labelsHidden()
+                .pickerStyle(.menu)
+                .fixedSize()
             }
             Rule()
             Line("Search a site from the address field", "Type the start of a site's name, like red or yout, then Tab, and what you type next searches that site. Sites you visit that offer a search join the list.") {
