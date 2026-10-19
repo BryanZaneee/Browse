@@ -615,8 +615,11 @@ struct ContentView: View {
         VStack(spacing: 8) {
             announcement
             if let ask = browser.asking {
-                captureAsking(ask)
-                    .transition(.move(edge: .bottom).combined(with: .opacity))
+                Group {
+                    if ask.screen { screenAsking(ask) }
+                    else { captureAsking(ask) }
+                }
+                .transition(.move(edge: .bottom).combined(with: .opacity))
             }
             if let offer = browser.offering {
                 keepAsking(offer)
@@ -886,62 +889,37 @@ struct ContentView: View {
     /// with the answer remembered so it is asked once and not every call.
     private func captureAsking(_ ask: Browser.CaptureAsk) -> some View {
         HStack(spacing: 12) {
-            Image(systemName: ask.screen ? "macwindow.on.rectangle" : ask.wants == "location" ? "location" : ask.wants == "microphone" ? "mic" : ask.wants == "notifications" ? "bell" : "video")
+            Image(systemName: ask.wants == "location" ? "location" : ask.wants == "microphone" ? "mic" : ask.wants == "notifications" ? "bell" : "video")
                 .font(.system(size: 11, weight: .medium))
                 .foregroundStyle(Palette.muted)
-            Text(ask.screen ? "\(ask.host) wants to share your screen"
-                 : ask.wants == "location" ? "\(ask.host) wants to know your location"
+            Text(ask.wants == "location" ? "\(ask.host) wants to know your location"
                  : ask.wants == "notifications" ? "\(ask.host) wants to send you notifications"
                  : "\(ask.host) wants to use your \(ask.wants)")
                 .font(.system(size: 12.5))
                 .foregroundStyle(Palette.ink)
-            if ask.screen {
-                Button { browser.shareScreen() } label: {
-                    Text("Share a Screen")
-                        .font(.system(size: 12))
-                        .foregroundStyle(Palette.ground)
-                        .padding(.horizontal, 11)
-                        .padding(.vertical, 5)
-                        .background(Palette.ink, in: Capsule())
-                }
-                .buttonStyle(.plain)
-                Button { browser.shareWindow() } label: {
-                    Text("Share a Window")
+            Button { ask.once ? browser.allowCaptureOnce() : browser.allowCapture() } label: {
+                Text(ask.once ? "Allow once" : "Allow")
+                    .font(.system(size: 12))
+                    .foregroundStyle(Palette.ground)
+                    .padding(.horizontal, 11)
+                    .padding(.vertical, 5)
+                    .background(Palette.ink, in: Capsule())
+            }
+            .buttonStyle(.plain)
+            if ask.once, ask.keeps {
+                Button { browser.allowCapture() } label: {
+                    Text("Always allow")
                         .font(.system(size: 12))
                         .foregroundStyle(Palette.ink)
                 }
                 .buttonStyle(.plain)
-                Button { browser.denyShare() } label: {
-                    Text("Don't allow")
-                        .font(.system(size: 12))
-                        .foregroundStyle(Palette.muted)
-                }
-                .buttonStyle(.plain)
-            } else {
-                Button { ask.once ? browser.allowCaptureOnce() : browser.allowCapture() } label: {
-                    Text(ask.once ? "Allow once" : "Allow")
-                        .font(.system(size: 12))
-                        .foregroundStyle(Palette.ground)
-                        .padding(.horizontal, 11)
-                        .padding(.vertical, 5)
-                        .background(Palette.ink, in: Capsule())
-                }
-                .buttonStyle(.plain)
-                if ask.once, ask.keeps {
-                    Button { browser.allowCapture() } label: {
-                        Text("Always allow")
-                            .font(.system(size: 12))
-                            .foregroundStyle(Palette.ink)
-                    }
-                    .buttonStyle(.plain)
-                }
-                Button { browser.denyCapture() } label: {
-                    Text("Don't allow")
-                        .font(.system(size: 12))
-                        .foregroundStyle(Palette.muted)
-                }
-                .buttonStyle(.plain)
             }
+            Button { browser.denyCapture() } label: {
+                Text("Don't allow")
+                    .font(.system(size: 12))
+                    .foregroundStyle(Palette.muted)
+            }
+            .buttonStyle(.plain)
         }
         .padding(.leading, 16)
         .padding(.trailing, 10)
@@ -949,6 +927,52 @@ struct ContentView: View {
         .background(Palette.ground, in: Capsule())
         .overlay(Capsule().strokeBorder(Palette.hairline, lineWidth: 1))
         .shadow(color: .black.opacity(0.12), radius: 20, y: 6)
+    }
+
+    private func screenAsking(_ ask: Browser.CaptureAsk) -> some View {
+        VStack(alignment: .leading, spacing: 16) {
+            HStack(alignment: .top, spacing: 10) {
+                Image(systemName: "macwindow.on.rectangle")
+                    .font(.system(size: 13))
+                    .foregroundStyle(Palette.muted)
+                    .padding(.top, 2)
+                Text("\(ask.host) wants to share your screen")
+                    .font(.system(size: 12.5))
+                    .foregroundStyle(Palette.ink)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            HStack(spacing: 12) {
+                Button { browser.denyShare() } label: {
+                    Text("Don't allow")
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 7)
+                        .contentShape(Rectangle())
+                }
+                Spacer(minLength: 8)
+                Button { browser.shareWindow() } label: {
+                    Text("Share a Window")
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 7)
+                        .contentShape(Rectangle())
+                }
+                Button { browser.shareScreen() } label: {
+                    Text("Share a Screen")
+                        .foregroundStyle(Palette.ground)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 7)
+                        .background(Palette.ink, in: Capsule())
+                }
+            }
+            .font(.system(size: 12))
+            .foregroundStyle(Palette.ink)
+            .buttonStyle(.plain)
+        }
+        .frame(maxWidth: 400, alignment: .leading)
+        .padding(18)
+        .background(Palette.ground, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).strokeBorder(Palette.hairline, lineWidth: 1))
+        .shadow(color: .black.opacity(0.12), radius: 20, y: 6)
+        .padding(.horizontal, 16)
     }
 
     /// Offered once, answered once. The password is never shown back to you —
