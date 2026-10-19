@@ -48,6 +48,8 @@ in [ROADMAP.md](ROADMAP.md).
 
 ### Fixed
 
+- Extension popups such as Google Translate keep their content width when macOS always shows scrollbars, instead of collapsing to a narrow strip ([#645](https://github.com/driceroland/Search/issues/645))
+
 - A video file opened as a page plays, as in Safari, instead of ending on "The page didn't load". A download site's link to an .mp4 opened the video in a new tab, and the error page covered it while it loaded. A file the site sends as a download still downloads, and a video that can't be reached still says so
 - An extension that signs in again quietly, as Claude in Chrome does each time the browser starts, does it out of sight as in Chrome, instead of opening its sign-in page in a tab in front. Claude in Chrome then gets its sign-in back without a tab, and the Claude app can reach it again when Search is signed in to claude.ai
 - A link that opens in a new tab works again inside a part of a page drawn in a sandbox, as some AI chats draw their answers. Since the change for asynchronous sign-ins, a click there counted for nothing and the link did nothing; the click now counts for that part of the page and nothing else, so an advertisement in a sandbox still can't open a window from it
