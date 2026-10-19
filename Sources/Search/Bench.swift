@@ -1714,8 +1714,6 @@ final class Bench {
                     "asking": browser.asking.map { "\($0.host) \($0.wants)" } ?? ""])
 
         case "answer":
-            // Permission cards, including screen sharing; test answers never
-            // open the Mac's location question or screen picker.
             guard Store.testing else { answer(["error": "answer only works on a --test run"]); return }
             switch request["with"] as? String {
             case "once": browser.allowCaptureOnce()

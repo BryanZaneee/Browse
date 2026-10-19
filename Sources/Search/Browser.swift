@@ -1190,9 +1190,6 @@ final class Browser: NSObject, ObservableObject {
         /// always; in a private tab it is never kept.
         var once = false
         var keeps = true
-        /// A website asking to share its screen: the card offers a screen or
-        /// a window, as Safari's does, and nothing is remembered — sharing
-        /// your screen is a thing you say yes to each time.
         var screen = false
         /// When it came up. A page can time a click to land where Allow is
         /// about to be: the card takes none in its first half second.
@@ -1202,8 +1199,7 @@ final class Browser: NSObject, ObservableObject {
 
     @Published private(set) var asking: CaptureAsk?
     private var decide: ((WKPermissionDecision) -> Void)?
-    /// A screen-share question's answer, apart from `decide`: WebKit wants a
-    /// screen (1) or a window (2), or no (0), not a yes/no.
+    /// WebKit's screen-sharing answers: deny (0), screen (1), window (2).
     private var decideDisplay: ((Int) -> Void)?
     private weak var displayTab: Tab?
     private var displayHeld: HeldQuestion?
@@ -1216,8 +1212,6 @@ final class Browser: NSObject, ObservableObject {
     func allowCaptureOnce() { answerCapture(.grant, keep: false) }
     func denyCapture() { answerCapture(.deny) }
 
-    /// The screen-share card's buttons: a screen, a window, or no. The Mac's
-    /// own picker follows a yes and asks which one.
     func shareScreen() { answerDisplay(1) }
     func shareWindow() { answerDisplay(2) }
     func denyShare() { answerDisplay(0) }
@@ -5517,13 +5511,8 @@ extension Browser: WKNavigationDelegate, WKUIDelegate {
         }, drop: { decisionHandler(.deny) })
     }
 
-    /// A website asking to share its screen (Meet, Around, a WebRTC call).
-    /// WebKit asks this through a delegate method that isn't public on the
-    /// Mac; left unanswered it falls back to showing the Mac's own picker
-    /// straight away, with nothing of Search's in front of it. Answered here,
-    /// Search puts its own card up first — as it does for the camera — and
-    /// only a yes brings on the Mac's picker to choose which screen or window.
-    /// Extension pages use their own delegates and recording broker.
+    /// WebKit's private delegate lets Search ask before opening the system picker.
+    /// Extension pages use separate delegates.
     @objc(_webView:requestDisplayCapturePermissionForOrigin:initiatedByFrame:withSystemAudio:decisionHandler:)
     func askedToShareScreen(_ webView: WKWebView, origin: WKSecurityOrigin, frame: WKFrameInfo,
                             systemAudio: Bool, decisionHandler: @escaping (Int) -> Void) {
@@ -5536,8 +5525,7 @@ extension Browser: WKNavigationDelegate, WKUIDelegate {
         let asker = frame.securityOrigin
         let host = origin.host.isEmpty ? (tab.address?.host() ?? "This page") : origin.host
         let named = Browser.extensionScheme(asker.protocol) ? Browser.extensionName(asker.host) : host
-        // Reserve the question while its tab is behind. Recheck after the
-        // deferred presentation: the tab may already have gone away again.
+        // Recheck ownership when a background tab's question is shown.
         displayHeld = ask(from: webView, show: { [weak self, weak webView] in
             guard let self, displayRequest == request else { return }
             guard let webView, activeID == tab.id, tab.built === webView else { return cancelDisplay() }

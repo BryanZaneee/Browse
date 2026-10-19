@@ -199,8 +199,7 @@ final class ScreenPermissionTests: XCTestCase {
     }
 
     private func ask(_ browser: Browser, _ tab: Tab, _ frame: WKFrameInfo, reply: @escaping (Int) -> Void) {
-        // Real frame metadata, but a local completion: even the broken code
-        // cannot hand a grant to WebKit and open the system picker here.
+        // The local reply keeps even a broken implementation from opening the picker.
         browser.askedToShareScreen(tab.web, origin: frame.securityOrigin, frame: frame,
                                   systemAudio: false, decisionHandler: reply)
     }
