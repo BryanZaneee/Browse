@@ -620,6 +620,7 @@ struct ContentView: View {
             }
             if let ask = browser.askingPopup {
                 PopupPermissionCard(browser: browser, question: ask)
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
             }
             if let offer = browser.offering {
                 keepAsking(offer)
@@ -634,6 +635,7 @@ struct ContentView: View {
         .padding(.bottom, 30)
         .animation(Motion.settle, value: browser.veiling)
         .animation(Motion.settle, value: browser.asking)
+        .animation(Motion.settle, value: browser.askingPopup != nil)
         .animation(Motion.settle, value: browser.offering)
     }
 
