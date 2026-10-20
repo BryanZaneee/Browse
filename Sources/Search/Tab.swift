@@ -544,6 +544,8 @@ final class Tab: ObservableObject, Identifiable {
     /// A private tab's own Always Allow: only for as long as the tab, never
     /// written anywhere, as its Keep This Site Awake.
     var popupSites: Set<String> = []
+    var blockedPopupSites: Set<String> = []
+    var onPopupCancel: (() -> Void)?
     private let passkeyRelay = PasskeyRelay()
     private let hovered = HoveredLink()
     private let ears = AudioWatch()
@@ -1099,6 +1101,7 @@ final class Tab: ObservableObject, Identifiable {
     }
 
     func go(to url: URL) {
+        onPopupCancel?()
         // Judged by the page it shows, not by how it was made: a tab an
         // extension's page opened with window.open is built from that
         // extension's configuration too. A tab with no page yet was just
@@ -1463,6 +1466,7 @@ final class Tab: ObservableObject, Identifiable {
     /// A view that has lost its document is given the address back instead:
     /// there is nothing else for it to reload.
     func reload(fromOrigin: Bool = false) {
+        onPopupCancel?()
         // A pin put down with ⌘W has no view left to reload; waking it is
         // the reload.
         guard !wake() else { return }
@@ -1476,11 +1480,11 @@ final class Tab: ObservableObject, Identifiable {
             web.reload()
         }
     }
-    func stop() { web.stopLoading() }
+    func stop() { onPopupCancel?(); web.stopLoading() }
     /// Straight through, every time. A page that has to be fetched again is
     /// fetched again — nothing is kept behind to make that look otherwise.
-    func back() { web.goBack() }
-    func forward() { web.goForward() }
+    func back() { onPopupCancel?(); web.goBack() }
+    func forward() { onPopupCancel?(); web.goForward() }
 
     /// Called when the tab is thrown away. Without it the view keeps running
     /// whatever the page left behind — timers, video, sockets.
@@ -1500,6 +1504,8 @@ final class Tab: ObservableObject, Identifiable {
     /// back-forward cache. The tab keeps its address; `web` builds again the
     /// next time anyone asks for it.
     private func discard() {
+        onPopupCancel?()
+        onPopupCancel = nil
         popupGesture.clear()
         if !blockedPopups.isEmpty { blockedPopups = [] }
         watch = []
@@ -1678,6 +1684,8 @@ final class PageView: WKWebView {
                 front.title = "Open Link in New Tab and Go to It"
                 front.keyEquivalentModifierMask = .option
                 front.isAlternate = true
+                front.target = self
+                front.action = #selector(openLinkInFront(_:))
                 menu.insertItem(front, at: index + 1)
             }
             openLink = (item.target, item.action)
@@ -1739,23 +1747,28 @@ final class PageView: WKWebView {
     """
     private var webSearch: (target: AnyObject?, action: Selector?) = (nil, nil)
 
-    /// WebKit's Open Link in New Window, handed on once the tab it makes is
-    /// marked to stay behind. WebKit asks for that tab a moment later, from
-    /// the page's process (Browser's createWebViewWith), so the mark lasts a
-    /// second and is used up by the first tab asked for.
+    /// A native link-menu action, consumed by the first window asked for
+    /// within a second. It needs no further site permission.
     private var openLink: (target: AnyObject?, action: Selector?) = (nil, nil)
-    private var behindSince: Date?
+    private var linkRequest: (at: Date, behind: Bool)?
 
     @objc private func openLinkBehind(_ item: NSMenuItem) {
         guard let action = openLink.action else { return }
-        behindSince = Date()
+        linkRequest = (Date(), true)
         NSApp.sendAction(action, to: openLink.target, from: item)
     }
 
-    /// Whether the tab being made now is the menu's, to stay behind.
-    func takeBehind() -> Bool {
-        defer { behindSince = nil }
-        return behindSince.map { Date().timeIntervalSince($0) < 1 } ?? false
+    @objc private func openLinkInFront(_ item: NSMenuItem) {
+        guard let action = openLink.action else { return }
+        linkRequest = (Date(), false)
+        NSApp.sendAction(action, to: openLink.target, from: item)
+    }
+
+    /// A native menu request, consumed once: behind, or in front.
+    func takeLinkRequest() -> Bool? {
+        defer { linkRequest = nil }
+        guard let linkRequest, Date().timeIntervalSince(linkRequest.at) < 1 else { return nil }
+        return linkRequest.behind
     }
 
     @objc private func searchSelection(_ item: NSMenuItem) {

@@ -120,12 +120,16 @@ def main():
         t.ok("unload cannot spend the old page's gesture", not opened("unload"))
 
         page = sv.page("delayed"); tap(page); time.sleep(3)
+        st = sv.cmd({"do": "popups", "id": page})
+        t.ok("delayed open asks before creating its tab", st["asking"] and not opened("delayed"), st)
+        sv.cmd({"do": "popups", "id": page, "action": "yes"}); time.sleep(1)
         t.ok("draw.io-style 2-second delayed open succeeds", len(opened("delayed")) == 1)
         t.ok("the same click cannot open a second popup", not opened("duplicate"))
 
         page = sv.page("post"); tap(page); time.sleep(3)
         t.ok("async POST opens and preserves the body", len(opened("post")) == 1 and posts == ["assertion=fake-test-only"], posts)
 
+        sv.cmd({"do": "popups", "action": "remove", "site": "127.0.0.1"})
         page = sv.page("expired"); tap(page); time.sleep(7)
         t.ok("an expired 6-second activation is refused", not opened("expired"))
 

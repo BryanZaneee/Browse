@@ -3,8 +3,8 @@ import WebKit
 
 // A window a page asked for and didn't get, as Safari shows it (idea 354).
 //
-// A page may open a window only for a click or a key pressed just before
-// (PopupGesture.swift). Refused, it used to vanish without a word, and a
+// A website's first window waits for its site permission (PopupPermission).
+// Refused, it used to vanish without a word, and a
 // site that opens its answers in a window some seconds after the click
 // (hark.com's, a work site behind a VPN) simply did nothing. Now the tab
 // keeps the last few refused, and a small sign beside its title says so.
@@ -93,8 +93,8 @@ extension Browser {
     /// Whether a window this tab's page asks for with no click just before
     /// opens all the same (see the top of this file).
     func popupsAllowed(_ tab: Tab, from frame: WKFrameInfo, top: URL?) -> Bool {
-        BlockedPopups.allows(prefs.popupSites.union(tab.popupSites), top: top,
-                             frameScheme: frame.securityOrigin.protocol, frameHost: frame.securityOrigin.host)
+        BlockedPopups.allows(tab.shy ? tab.popupSites : prefs.popupSites, top: top,
+                            frameScheme: frame.securityOrigin.protocol, frameHost: frame.securityOrigin.host)
     }
 
     /// Open from the sign: a tab of its own beside this one, in front, as a
@@ -115,8 +115,10 @@ extension Browser {
         guard let site = BlockedPopups.site(of: tab.pageAddress) else { return }
         if tab.shy {
             tab.popupSites.insert(site)
+            tab.blockedPopupSites.remove(site)
         } else {
             prefs.popupSites.insert(site)
+            prefs.blockedPopupSites.remove(site)
         }
         tab.blockedPopups = []
     }
@@ -231,8 +233,7 @@ struct BlockedPopupsMenu: View {
     }
 }
 
-/// Settings › Privacy: the sites allowed to open pop-ups, each with a way
-/// to take it back. Nothing shows while there are none.
+/// Settings › Privacy: saved popup choices, each with a way to take it back.
 struct PopupSiteList: View {
     @ObservedObject var prefs: Preferences
 
@@ -241,6 +242,12 @@ struct PopupSiteList: View {
             Rule()
             Line(site, "Can open pop-ups without a click") {
                 Pill("Remove") { prefs.popupSites.remove(site) }
+            }
+        }
+        ForEach(prefs.blockedPopupSites.sorted(), id: \.self) { site in
+            Rule()
+            Line(site, "Pop-ups blocked") {
+                Pill("Remove") { prefs.blockedPopupSites.remove(site) }
             }
         }
     }

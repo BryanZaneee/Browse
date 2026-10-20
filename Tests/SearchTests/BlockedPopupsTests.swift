@@ -112,10 +112,6 @@ final class BlockedPopupsTests: XCTestCase {
         XCTAssertEqual(page.popupSites, ["hark.com"])
         XCTAssertTrue(browser.prefs.popupSites.isEmpty)
         XCTAssertTrue(Preferences().popupSites.isEmpty)
-        // But the saved list does apply in a private tab.
-        browser.prefs.popupSites = ["example.com"]
-        XCTAssertTrue(BlockedPopups.allows(browser.prefs.popupSites.union(tab("https://example.com", privateMode: true).popupSites),
-                                           top: URL(string: "https://example.com"), frameScheme: "https", frameHost: "example.com"))
     }
 
     func testOpenMakesAPlainTabAtTheAddressWithNoOpener() throws {

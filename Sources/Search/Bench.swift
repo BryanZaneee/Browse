@@ -2918,11 +2918,14 @@ final class Bench {
             guard Store.testing || ["state", "sites"].contains(action) else {
                 answer(["error": "popups \(action) only works on a --test run"]); return
             }
-            let sites: () -> [String: Any] = { ["allowed": browser.prefs.popupSites.sorted()] }
+            let sites: () -> [String: Any] = {
+                ["allowed": browser.prefs.popupSites.sorted(), "denied": browser.prefs.blockedPopupSites.sorted()]
+            }
             if action == "sites" { answer(sites()); return }
             if action == "remove" {
                 guard let site = request["site"] as? String else { answer(["error": "popups remove needs a site"]); return }
                 browser.prefs.popupSites.remove(site)
+                browser.prefs.blockedPopupSites.remove(site)
                 answer(sites()); return
             }
             guard let tab = find(request, in: browser) else { answer(missing(request)); return }
@@ -2934,10 +2937,19 @@ final class Bench {
                     "site": BlockedPopups.site(of: tab.pageAddress) ?? "",
                     "allowed": browser.prefs.popupSites.sorted(),
                     "tabAllowed": tab.popupSites.sorted(),
+                    "denied": browser.prefs.blockedPopupSites.sorted(),
+                    "tabDenied": tab.blockedPopupSites.sorted(),
+                    "pending": browser.pendingPopup?.tab === tab,
+                    "asking": browser.askingPopup?.tab === tab,
+                    "askingHost": browser.askingPopup?.host ?? "",
                 ]
             }
             switch action {
             case "state": answer(state())
+            case "yes", "no", "once":
+                guard browser.askingPopup?.tab === tab else { answer(["error": "no pop-up question for this tab"]); return }
+                browser.answerPopup(allow: action != "no", keep: action != "once")
+                answer(state())
             case "open":
                 let index = request["index"] as? Int ?? 0
                 let newest = Array(tab.blockedPopups.reversed())
@@ -2953,7 +2965,7 @@ final class Bench {
                 browser.allowPopups(from: tab)
                 answer(state())
             default:
-                answer(["error": "popups state|open|allow|remove|sites"])
+                answer(["error": "popups state|once|yes|no|open|allow|remove|sites"])
             }
 
         case "extensions", "ext-add", "ext-folder", "ext-press", "ext-remove", "ext-reload", "ext-page", "ext-popup", "ext-menu", "ext-pin", "ext-shot", "ext-answer", "ext-enable", "capture", "capture-stop":

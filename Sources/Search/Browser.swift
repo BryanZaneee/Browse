@@ -68,6 +68,7 @@ final class Browser: NSObject, ObservableObject {
                 DispatchQueue.main.async { held.forEach { $0.present() } }
             }
             guard oldValue != activeID else { return }
+            if askingPopup != nil { cancelPopup() }
             clearTabSelection()
             // What was found belongs to the page just left; the words typed
             // go on to be looked for on this one.
@@ -1196,6 +1197,8 @@ final class Browser: NSObject, ObservableObject {
     }
 
     @Published private(set) var asking: CaptureAsk?
+    @Published var askingPopup: PopupQuestion?
+    var pendingPopup: PopupQuestion?
     private var decide: ((WKPermissionDecision) -> Void)?
     private var askedAbout = ""
 
@@ -2485,6 +2488,7 @@ final class Browser: NSObject, ObservableObject {
 
     /// Its window closed for good, with others open: every page let go.
     func closeAll() {
+        cancelPopup()
         if floating != nil { land(covering: false) }
         if peekTab != nil { closePeek() }
         for tab in tabs + parkedTabs { tab.close() }
@@ -3399,6 +3403,7 @@ final class Browser: NSObject, ObservableObject {
 
     /// Out of this row, not closed: it is on its way to another window.
     private func detach(_ tab: Tab) {
+        if let web = tab.built { cancelPopup(for: web) }
         guard let index = tabs.firstIndex(where: { $0.id == tab.id }) else { return }
         let partner = split(for: tab).flatMap { pair in tabs.first { $0.id == pair.partner(of: tab.id) } }
         detachSplit(tab)
@@ -4887,6 +4892,9 @@ extension Browser: WKNavigationDelegate, WKUIDelegate {
         decisionHandler: @escaping (WKNavigationActionPolicy, WKWebpagePreferences) -> Void
     ) {
         decide(webView, action) { [weak self] policy in
+            if policy == .allow, action.targetFrame != nil {
+                self?.cancelPopup(for: webView)
+            }
             // Revoke before WebKit can run the old document's unload handlers.
             // A nil target is a new window, not this tab leaving its document.
             if policy == .allow, action.targetFrame?.isMainFrame == true {
@@ -5118,20 +5126,14 @@ extension Browser: WKNavigationDelegate, WKUIDelegate {
         for action: WKNavigationAction,
         windowFeatures: WKWindowFeatures
     ) -> WKWebView? {
-        guard let opener = popupTab(for: webView) else { return nil }
-        let clicked = opener.popupGesture.take(origin: PopupGesture.origin(action.sourceFrame), mainFrame: action.sourceFrame.isMainFrame)
-        if !clicked {
-            // A second window for a click that already had its one: the
-            // duplicate one click must not make, said nowhere.
-            if opener.popupGesture.spent() { return nil }
-            // No click just before: refused, and the tab says so (see
-            // BlockedPopups.swift), unless you allowed pop-ups from this site
-            // and it is the site's own page or frame asking.
-            guard popupsAllowed(opener, from: action.sourceFrame, top: opener.committed ?? webView.url) else {
-                opener.noteBlocked(action.request.url)
-                return nil
-            }
-        }
+        // Older WebKit versions without the asynchronous hook fail closed.
+        var result: WKWebView?
+        requestPopup(webView, configuration: configuration, action: action, features: windowFeatures, canAsk: false) { result = $0 }
+        return result
+    }
+
+    func makePopup(from webView: WKWebView, opener: Tab, configuration: WKWebViewConfiguration,
+                   action: WKNavigationAction, features: WKWindowFeatures, clicked: Bool, behind: Bool) -> WKWebView {
         let from = opener.id
         // WebKit's copy of the opener's configuration still holds the
         // opener's user content controller — its scripts and its message
@@ -5144,14 +5146,14 @@ extension Browser: WKNavigationDelegate, WKUIDelegate {
         // Settings › Videos wait for a click last moved.
         configuration.mediaTypesRequiringUserActionForPlayback = Web.playback
         let tab = Tab(shy: opener.shy, configuration: configuration)
-        tab.popup = windowFeatures.width != nil || windowFeatures.height != nil
-            || windowFeatures.toolbarsVisibility?.boolValue == false
+        tab.popup = features.width != nil || features.height != nil
+            || features.toolbarsVisibility?.boolValue == false
         tab.opener = from
         if clicked { opener.popupGesture.opened(tab.id) }
         // The link menu's Open Link in New Tab: behind this tab, where a
         // ⌘-click's goes (see open(_:foreground:)).
         prepare(tab)
-        if (webView as? PageView)?.takeBehind() == true, let source = self.tab(for: webView) {
+        if behind, let source = self.tab(for: webView) {
             if prefs.usesTabGroups, !tab.shy, !tab.bench { tab.groupID = source.groupID }
             tabs.insert(tab, at: placeForNew())
         } else {
@@ -5461,7 +5463,7 @@ extension Browser: WKNavigationDelegate, WKUIDelegate {
             guard let self else { return decisionHandler(.deny) }
             // One question at a time. A second page asking while the first is
             // still waiting is refused rather than queued behind it.
-            guard decide == nil else { return decisionHandler(.deny) }
+            guard decide == nil, pendingPopup == nil else { return decisionHandler(.deny) }
             decide = decisionHandler
             askedAbout = shy ? "" : key
             asking = CaptureAsk(host: host, wants: Browser.name(for: type))
@@ -5516,7 +5518,7 @@ extension Browser: WKNavigationDelegate, WKUIDelegate {
             return give(remembered ? .grant : .deny)
         }
         // One question at a time, as for the camera.
-        guard decide == nil else { return give(.deny) }
+        guard decide == nil, pendingPopup == nil else { return give(.deny) }
         decide = give
         askedAbout = tab.shy ? "" : key
         let named = Browser.extensionScheme(origin.protocol) ? Browser.extensionName(origin.host) : origin.host
@@ -5538,7 +5540,7 @@ extension Browser: WKNavigationDelegate, WKUIDelegate {
         if let remembered = SiteNotifications.choices[site] { return decisionHandler(remembered) }
         ask(from: webView, show: { [weak self] in
             guard let self else { return decisionHandler(false) }
-            guard decide == nil else { return decisionHandler(false) }
+            guard decide == nil, pendingPopup == nil else { return decisionHandler(false) }
             decide = { decision in
                 if decision == .grant { SiteNotifications.shared.authorize() }
                 decisionHandler(decision == .grant)

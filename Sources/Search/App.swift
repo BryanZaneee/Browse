@@ -618,6 +618,9 @@ struct ContentView: View {
                 captureAsking(ask)
                     .transition(.move(edge: .bottom).combined(with: .opacity))
             }
+            if let ask = browser.askingPopup {
+                PopupPermissionCard(browser: browser, question: ask)
+            }
             if let offer = browser.offering {
                 keepAsking(offer)
                     .transition(.move(edge: .bottom).combined(with: .opacity))
@@ -1265,7 +1268,7 @@ struct ContentView: View {
             !browser.reviewing && !browser.bookmarksOpen &&
             !browser.veiling && !browser.summoning && !browser.makingSpace &&
             browser.peekTab == nil && browser.editingTab == nil &&
-            browser.asking == nil && browser.offering == nil && browser.suggesting == nil
+            browser.asking == nil && browser.askingPopup == nil && browser.offering == nil && browser.suggesting == nil
     }
 
     /// The keys of the top row, by where they sit rather than what they type.
@@ -1274,6 +1277,7 @@ struct ContentView: View {
     ]
 
     private func take(_ event: NSEvent) -> Bool {
+        if browser.popupKey(event) { return true }
         // A question hanging from the window (Ask) answers its own keys. Esc
         // there is its Cancel: taken here, it closed the panel under it and
         // left the question up, with Return still on its first button.

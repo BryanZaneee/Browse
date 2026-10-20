@@ -129,6 +129,8 @@ def main():
     t = sv.T()
     try:
         sv.setup(); sv.launch()
+        anchor = sv.page("plain")
+        sv.cmd({"do": "popups", "id": anchor, "action": "allow"})
         case(t, "anchor target=_blank", "anchor", "anchor")
         case(t, "window.open only", "wopen", "wopen")
         case(t, "anchor + window.open, same address (Gmail)", "gmail", "gmail")

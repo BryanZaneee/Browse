@@ -87,6 +87,9 @@ def visit(path, source=None):
         req["from"] = source or anchor
     tab = sv.cmd(req)["resultID"]
     time.sleep(1.5)
+    if state(tab)["asking"]:
+        sv.cmd({"do": "popups", "id": tab, "action": "no"})
+        time.sleep(0.2)
     return tab
 
 
@@ -139,6 +142,7 @@ def main():
 
         # D: one click, one window: the second isn't a pop-up to offer.
         page = visit("/twice")
+        sv.cmd({"do": "popups", "id": page, "action": "allow"})
         sv.cmd({"do": "tap", "id": page, "selector": "#go"})
         time.sleep(1.5)
         t.ok("a click opens its one window", len(opened("first")) == 1 and not opened("second"))
@@ -159,13 +163,13 @@ def main():
         t.ok("a third-party frame on the allowed site is still refused", not opened("third"), opened("third"))
         t.ok("and noted", st["blocked"] == [f"{OTHER}/opened-third"], st)
 
-        # F: the saved list applies in a private tab.
+        # F: private tabs keep their own choices.
         sv.sp("private")
         shy = next(x["id"] for x in tabs() if x["shy"] and x["active"])
         count = len(opened("auto"))
         page = visit("/auto", source=shy)
         t.ok("the page is private", next(x for x in tabs() if x["id"] == page)["shy"] is True)
-        t.ok("the saved list applies there", len(opened("auto")) == count + 1)
+        t.ok("the saved allow list is not inherited", len(opened("auto")) == count and state(page)["tabDenied"] == ["localhost"])
 
         # G: removed in Settings, refused again.
         st = sv.cmd({"do": "popups", "action": "remove", "site": "localhost"})

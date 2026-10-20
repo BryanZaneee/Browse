@@ -178,6 +178,9 @@ final class Preferences: ObservableObject {
     @Published var popupSites: Set<String> {
         didSet { store.set(Array(popupSites).sorted(), forKey: "privacy.popupSites") }
     }
+    @Published var blockedPopupSites: Set<String> {
+        didSet { store.set(Array(blockedPopupSites).sorted(), forKey: "privacy.blockedPopupSites") }
+    }
     /// Tabs nobody has looked at for half an hour give their page back and
     /// keep where they were. On unless turned off.
     @Published var sleepsTabs: Bool {
@@ -532,6 +535,7 @@ final class Preferences: ObservableObject {
         keepsSitesAwake = store.bool(forKey: "tabs.keepAwake")
         awakeSites = Set(store.stringArray(forKey: "tabs.awakeSites") ?? [])
         popupSites = Set(store.stringArray(forKey: "privacy.popupSites") ?? [])
+        blockedPopupSites = Set(store.stringArray(forKey: "privacy.blockedPopupSites") ?? [])
         sleepsTabs = store.object(forKey: "tabs.sleep") as? Bool ?? true
         tabLife = TabLife(rawValue: store.integer(forKey: "tabs.close.after")) ?? .never
         sleepPace = SleepPace.chosen
