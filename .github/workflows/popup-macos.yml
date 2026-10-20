@@ -8,7 +8,7 @@ env:
   SOURCE_SHA: 0c1c0191fe27e1e2812e698a2fe5039ec7081bb0
 jobs:
   build:
-    runs-on: macos-26
+    runs-on: macos-15
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
