@@ -282,6 +282,7 @@ struct TabBar: View {
         return rowItem(tab, in: browser.tabs, splits: browser.splits, activeID: browser.activeID,
                        width: each, room: strip - lights - leading - 12,
                        height: Metrics.strip, interactive: true, pill: pill)
+            .modifier(TabShortcutHint(tab: tab.id, enabled: browser.editingTab == nil, alignment: .topTrailing, trailing: 4))
             .background {
                 if browser.prefs.splitView && !isPairRepresentative {
                     SplitDropZone(browser: browser, tab: tab, kind: .strip)

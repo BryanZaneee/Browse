@@ -333,6 +333,7 @@ struct SideBar: View {
                          focusedID: activeID,
                          interactive: interactive, pill: pill)
                 .frame(maxWidth: .infinity)
+                .modifier(TabShortcutHint(tab: tab.id, enabled: interactive && browser.editingTab != tab.id && browser.editingTab != right.id, trailing: 28))
         } else {
             SideRow(browser: browser, prefs: prefs, tab: tab,
                     live: tab.id == activeID, pill: pill, close: close,
@@ -673,6 +674,7 @@ private struct PinSquare: View {
         .overlay { MiddleClick { browser.close(tab) } }
         .onHover { hovering = $0 }
         .contextMenu { TabMenu(browser: browser, tab: tab, close: { browser.close(tab) }) }
+        .modifier(TabShortcutHint(tab: tab.id, enabled: browser.editingPin != tab.id, alignment: .bottomTrailing))
         .help(tab.label)
         .animation(Motion.quick, value: hovering)
         .transition(.scale(scale: 0.8).combined(with: .opacity))
@@ -827,6 +829,7 @@ private struct SideRow: View {
         })
         .modifier(ModifiedTabClick { if interactive && !editing { browser.extendTabSelection(to: tab, modifiers: $0) } })
         .overlay { if interactive { MiddleClick(act: close) } }
+        .modifier(TabShortcutHint(tab: tab.id, enabled: interactive && !editing, trailing: 28))
         .onHover { hovering = $0 }
         .contextMenu { if interactive { TabMenu(browser: browser, tab: tab, close: close) } }
         .background {
