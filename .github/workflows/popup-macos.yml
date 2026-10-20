@@ -1,0 +1,64 @@
+name: Popup permission macOS compatibility
+on:
+  push:
+    branches: [test/656-popup-macos]
+permissions:
+  contents: read
+env:
+  SOURCE_SHA: 0c1c0191fe27e1e2812e698a2fe5039ec7081bb0
+jobs:
+  build:
+    runs-on: macos-26
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.SOURCE_SHA }}
+          persist-credentials: false
+      - name: Record build environment
+        run: |
+          sw_vers
+          uname -m
+          swift --version
+          git rev-parse HEAD
+      - name: Focused Swift regressions
+        run: swift test --filter 'PopupPermissionTests|PopupGesture|BlockedPopups'
+      - name: Build app targeting macOS 14
+        run: ./build.sh debug
+      - name: Package the same app for every runtime
+        run: tar -czf popup-app.tgz -C build Search.app
+      - uses: actions/upload-artifact@v4
+        with:
+          name: popup-app
+          path: popup-app.tgz
+          retention-days: 14
+  runtime:
+    needs: build
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-14, macos-15, macos-26]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.SOURCE_SHA }}
+          persist-credentials: false
+      - uses: actions/download-artifact@v4
+        with:
+          name: popup-app
+      - name: Record actual runtime and source
+        run: |
+          sw_vers
+          uname -m
+          git rev-parse HEAD
+      - name: Unpack app
+        run: |
+          mkdir -p build
+          tar -xzf popup-app.tgz -C build
+          codesign --verify --deep --strict build/Search.app
+      - name: Native popup permission journeys
+        run: python3 -u Tests/popup_permission.py
+      - name: Native context menu compatibility
+        run: python3 -u Tests/link_menu.py
