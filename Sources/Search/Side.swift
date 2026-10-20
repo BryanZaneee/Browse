@@ -333,7 +333,6 @@ struct SideBar: View {
                          focusedID: activeID,
                          interactive: interactive, pill: pill)
                 .frame(maxWidth: .infinity)
-                .modifier(TabShortcutHint(tab: tab.id, enabled: interactive && browser.editingTab != tab.id && browser.editingTab != right.id, trailing: 28))
         } else {
             SideRow(browser: browser, prefs: prefs, tab: tab,
                     live: tab.id == activeID, pill: pill, close: close,
@@ -602,6 +601,7 @@ private struct PinGrid: Layout {
 /// room to spare turns into a wide, short button rather than a bigger icon.
 private struct PinSquare: View {
     @Environment(\.greys) private var greys
+    @Environment(\.tabShortcutNumbers) private var shortcutNumbers
     @ObservedObject var browser: Browser
     @ObservedObject var prefs: Preferences
     @ObservedObject var tab: Tab
@@ -622,6 +622,8 @@ private struct PinSquare: View {
         Group {
             if browser.editingPin == tab.id {
                 PinField(browser: browser, tab: tab)
+            } else if let number = shortcutNumbers[tab.id] {
+                TabShortcutNumber(number: number)
             } else if tab.loading {
                 // Its page on the way, as a row's ring says.
                 Ring(size: scale * 11 / 34)
@@ -674,7 +676,6 @@ private struct PinSquare: View {
         .overlay { MiddleClick { browser.close(tab) } }
         .onHover { hovering = $0 }
         .contextMenu { TabMenu(browser: browser, tab: tab, close: { browser.close(tab) }) }
-        .modifier(TabShortcutHint(tab: tab.id, enabled: browser.editingPin != tab.id, alignment: .bottomTrailing))
         .help(tab.label)
         .animation(Motion.quick, value: hovering)
         .transition(.scale(scale: 0.8).combined(with: .opacity))
@@ -684,6 +685,7 @@ private struct PinSquare: View {
 /// One tab, as a line in the column.
 private struct SideRow: View {
     @Environment(\.greys) private var greys
+    @Environment(\.tabShortcutNumbers) private var shortcutNumbers
     @ObservedObject var browser: Browser
     @ObservedObject var prefs: Preferences
     @ObservedObject var tab: Tab
@@ -752,6 +754,11 @@ private struct SideRow: View {
                 browser.clearTabSelection()
                 browser.select(tab)
             })
+
+            if interactive, !editing, let number = shortcutNumbers[tab.id] {
+                TabShortcutNumber(number: number)
+                    .padding(.trailing, status ? 0 : 28)
+            }
 
             if status {
                 ZStack {
@@ -829,7 +836,6 @@ private struct SideRow: View {
         })
         .modifier(ModifiedTabClick { if interactive && !editing { browser.extendTabSelection(to: tab, modifiers: $0) } })
         .overlay { if interactive { MiddleClick(act: close) } }
-        .modifier(TabShortcutHint(tab: tab.id, enabled: interactive && !editing, trailing: 28))
         .onHover { hovering = $0 }
         .contextMenu { if interactive { TabMenu(browser: browser, tab: tab, close: close) } }
         .background {

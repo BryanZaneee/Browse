@@ -1506,13 +1506,13 @@ struct ContentView: View {
         // types. On AZERTY and many other layouts the top row types &, é, "…
         // unless shift is held, so matching the character left these
         // shortcuts dead there; the shortcut belongs to the key, as it does
-        // in every other browser. The ninth is the last tab, however many.
-        // Only tabs on screen count: not those folded away in a group.
+        // in every other browser. The ninth is the last tab or folded group;
+        // a folded group counts once, under its heading.
         if !shifted, let number = ContentView.digits[event.keyCode] {
             if number == 0 {
                 browser.resetZoom()
             } else {
-                browser.select(index: number == 9 ? browser.shownTabs.count - 1 : number - 1)
+                browser.select(index: number == 9 ? browser.tabShortcutTargets.count - 1 : number - 1)
             }
             return true
         }
