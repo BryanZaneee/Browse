@@ -39,7 +39,9 @@ struct Page: View {
                 Image(nsImage: cover)
                     .resizable()
                     .aspectRatio(contentMode: .fill)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                    // The saved aspect ratio must not enlarge the page's layout.
+                    .frame(minWidth: 0, maxWidth: .infinity, minHeight: 0, maxHeight: .infinity,
+                           alignment: .topLeading)
                     .clipped()
                     .allowsHitTesting(false)
                     .transition(.asymmetric(insertion: .identity, removal: .opacity))
