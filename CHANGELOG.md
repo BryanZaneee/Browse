@@ -53,6 +53,8 @@ in [ROADMAP.md](ROADMAP.md).
 
 ### Fixed
 
+- Extensions with overlapping site permissions use less memory: a wildcard grant covers its named hosts without registering duplicate grants and copies of their content scripts. This reduces, but does not eliminate, WebKit's script duplication with extensions such as Lexirise ([#663](https://github.com/driceroland/Search/issues/663)).
+
 - Settings › Videos wait for a click is followed by tabs already open from their next page or reload, and by a link opened from one of them. Before, a tab open when the switch moved, and any link opened from it, kept the old answer until it slept or Search restarted, so with the switch off again its videos still waited for a click
 - A video file opened as a page plays, as in Safari, instead of ending on "The page didn't load". A download site's link to an .mp4 opened the video in a new tab, and the error page covered it while it loaded. A file the site sends as a download still downloads, and a video that can't be reached still says so
 - An extension that signs in again quietly, as Claude in Chrome does each time the browser starts, does it out of sight as in Chrome, instead of opening its sign-in page in a tab in front. Claude in Chrome then gets its sign-in back without a tab, and the Claude app can reach it again when Search is signed in to claude.ai
