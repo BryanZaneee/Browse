@@ -16,6 +16,8 @@ struct CaptureQuestion: View {
                 }
             }
         }
+        .font(.system(size: 12))
+        .buttonStyle(.plain)
         .padding(.leading, 16)
         .padding(.trailing, 10)
         .padding(.vertical, 9)
@@ -46,27 +48,17 @@ struct CaptureQuestion: View {
     private var buttons: some View {
         Button { ask.once ? browser.allowCaptureOnce() : browser.allowCapture() } label: {
             Text(ask.once ? "Allow once" : "Allow")
-                .font(.system(size: 12))
                 .foregroundStyle(Palette.ground)
                 .padding(.horizontal, 11)
                 .padding(.vertical, 5)
                 .background(Palette.ink, in: Capsule())
         }
-        .buttonStyle(.plain)
         if ask.once, ask.keeps {
-            Button { browser.allowCapture() } label: {
-                Text("Always allow")
-                    .font(.system(size: 12))
-                    .foregroundStyle(Palette.ink)
-            }
-            .buttonStyle(.plain)
+            Button("Always allow") { browser.allowCapture() }
+                .foregroundStyle(Palette.ink)
         }
-        Button { browser.denyCapture() } label: {
-            Text("Don't allow")
-                .font(.system(size: 12))
-                .foregroundStyle(Palette.muted)
-        }
-        .buttonStyle(.plain)
+        Button("Don't allow") { browser.denyCapture() }
+            .foregroundStyle(Palette.muted)
     }
 }
 
@@ -86,6 +78,8 @@ struct PasswordOffer: View {
                 }
             }
         }
+        .font(.system(size: 12))
+        .buttonStyle(.plain)
         .padding(.leading, 16)
         .padding(.trailing, 12)
         .padding(.vertical, 9)
@@ -111,20 +105,14 @@ struct PasswordOffer: View {
     @ViewBuilder
     private var buttons: some View {
         Button(offer.changed ? "Update" : "Save") { browser.keepOffer() }
-            .buttonStyle(.plain)
-            .font(.system(size: 12))
             .foregroundStyle(Palette.ground)
             .padding(.horizontal, 11)
             .padding(.vertical, 5)
             .background(Palette.ink, in: Capsule())
         Button("Not now") { browser.dropOffer() }
-            .buttonStyle(.plain)
-            .font(.system(size: 12))
             .foregroundStyle(Palette.muted)
         if !offer.changed {
             Button("Never here") { browser.neverOffer() }
-                .buttonStyle(.plain)
-                .font(.system(size: 12))
                 .foregroundStyle(Palette.muted)
         }
     }
