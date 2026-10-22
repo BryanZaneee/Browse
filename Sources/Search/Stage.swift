@@ -1,14 +1,7 @@
 import SwiftUI
 import WebKit
 
-/// Everything below the strip: the page, the line that says it is coming, and
-/// the sentence that says it never did.
-///
-/// The tab is watched from here rather than from the window. A tab is a class,
-/// so going from blank to loaded changes nothing about the value the window
-/// hands down — SwiftUI sees the same reference, re-runs nothing, and the page
-/// arrives in WebKit without ever being put on screen. Watching it here is
-/// what turns that into a redraw.
+/// Observe the tab here so page changes redraw even when its reference is unchanged.
 struct Page: View {
     @ObservedObject var tab: Tab
     /// False where the page itself is held elsewhere (see PaneStage.swift)
@@ -19,23 +12,13 @@ struct Page: View {
 
     var body: some View {
         ZStack {
-            // A tab put down with ⌘W has no view, and asking for one here
-            // would build an empty one a frame before the stage moves on.
-            //
-            // Nor is a floating page asked for. Handing the same view over
-            // before and after the float changes nothing SwiftUI can see, so
-            // the stage was never told to take it back when it landed, and
-            // the tab stayed empty. Nothing, then the page, is a change.
+            // Avoid building sleeping tabs; nil lets SwiftUI reattach a floating page on return.
             if holdsPage {
                 WebStage(page: tab.isBlank || tab.asleep || tab.floating ? nil : tab.web, corner: corner)
             }
 
             if let cover = tab.cover {
-                // The page as it was left, while it is rebuilt underneath —
-                // anchored where the page itself starts, and never in the
-                // way of a click meant for the page. Up at once, since what
-                // it covers is not fit to be seen (a page waking up, or one
-                // landing from the floating window); off with a fade.
+                // Cover rebuilding pages immediately, then fade without intercepting clicks.
                 Image(nsImage: cover)
                     .resizable()
                     .aspectRatio(contentMode: .fill)
@@ -46,8 +29,6 @@ struct Page: View {
             }
 
             if tab.floating {
-                // The tab is not empty, its page is simply elsewhere. Saying so
-                // is kinder than a white rectangle.
                 Text("This page is playing in the floating window.")
                     .font(.system(size: 13))
                     .foregroundStyle(Palette.muted)
