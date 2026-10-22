@@ -170,6 +170,18 @@ def main():
             before = len(tabs())
             tap(small, "#link", 2, **options)
             t.ok(description + " opens in the normal browser and keeps the popup single-page", len(tabs()) == before + 1 and len(tabs(2)) == 1)
+        for pick, foreground in (("Open Link in New Tab", False), ("Open Link in New Tab and Go to It", True)):
+            active = next(tab["id"] for tab in tabs() if tab["active"])
+            path = "/menu-front" if foreground else "/menu-behind"
+            point = evaluate(small, """(() => { const link = document.querySelector('#link');
+                link.href = %s; link.scrollIntoView();
+                const r = link.getBoundingClientRect(); return [r.x + r.width / 2, r.y + r.height / 2]; })();
+                """ % json.dumps(sv.BASE + path), 2)
+            sv.cmd({"do": "linkmenu", "id": small, "window": 2, "x": point[0], "y": point[1], "pick": pick})
+            made = [tab for tab in tabs() if urlparse(tab["url"]).path == path]
+            t.ok(pick + " from a popup preserves foreground/background selection",
+                 len(made) == 1 and next(tab["id"] for tab in tabs() if tab["active"]) == (made[0]["id"] if foreground else active)
+                 and len(tabs(2)) == 1)
         tap(small, "#plain", 2)
         t.ok("ordinary links in the popup open a normal browser tab", any(urlparse(tab["url"]).path == "/plain-from-popup" for tab in tabs()) and len(tabs(2)) == 1)
         tap(small, "#close", 2)

@@ -5217,8 +5217,8 @@ extension Browser: WKNavigationDelegate, WKUIDelegate {
         // ⌘-click's goes (see open(_:foreground:)).
         let destination = tabDestination
         destination.prepare(tab)
-        if (webView as? PageView)?.takeBehind() == true, let source = destination.tab(for: webView) {
-            if prefs.usesTabGroups, !tab.shy, !tab.bench { tab.groupID = source.groupID }
+        if (webView as? PageView)?.takeBehind() == true {
+            if prefs.usesTabGroups, !tab.shy, !tab.bench { tab.groupID = opener.groupID }
             destination.tabs.insert(tab, at: destination.placeForNew())
         } else {
             destination.tabs.insert(tab, at: destination.placeForFront())
