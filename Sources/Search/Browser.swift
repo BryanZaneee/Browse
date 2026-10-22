@@ -2,9 +2,7 @@ import SwiftUI
 import WebKit
 import Combine
 
-// Everything the window knows: which tabs exist, which one is showing, and
-// whether the address field is up. Small enough to read in one sitting, which
-// is the point of a browser with no features.
+// Each window's tabs, navigation, and interface state.
 
 /// What every window shares: the settings, History, bookmarks, the
 /// downloads list and the downloads under way, hidden elements, and the
@@ -4722,12 +4720,6 @@ final class Browser: NSObject, ObservableObject {
         typed = ""
         siteChip = site
         return true
-    }
-
-    /// Tab, or the right arrow at the end of the line: take what is offered.
-    func acceptEnding() {
-        guard let ending, !ending.isEmpty else { return }
-        typed += ending
     }
 
     /// The arrow keys walk the list, and walking off the top lets go of it.
